@@ -1,14 +1,41 @@
 #!/bin/bash
 
-# ================= КОНФИГУРАЦИЯ =================
+# ================= ДЕФОЛТНАЯ КОНФИГУРАЦИЯ =================
+# (Используется, если скрипт запущен локально без аргументов)
 GITHUB_USER="masseselsev"
 GITHUB_REPO="controlboard"
 REPO_FOLDER="dist"
 BRANCH="main"
 INSTALL_DIR="$HOME/controlboard"
-# ================================================
+# ==========================================================
 
 set -e
+
+# -----------------------------------------------------
+# 0. АВТО-КОНФИГУРАЦИЯ ИЗ URL (ЕСЛИ ПЕРЕДАН АРГУМЕНТ)
+# -----------------------------------------------------
+if [ -n "$1" ]; then
+    INPUT_URL="$1"
+    # Regex для разбора ссылки GitHub raw
+    # Формат: https://raw.githubusercontent.com/USER/REPO/BRANCH/PATH...
+    if [[ "$INPUT_URL" =~ https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/(.+) ]]; then
+        GITHUB_USER="${BASH_REMATCH[1]}"
+        GITHUB_REPO="${BASH_REMATCH[2]}"
+        BRANCH="${BASH_REMATCH[3]}"
+        FULL_PATH="${BASH_REMATCH[4]}"
+        
+        # Определяем папку, в которой лежит скрипт (убираем имя файла setup.sh)
+        REPO_FOLDER=$(dirname "$FULL_PATH")
+        
+        echo "==============================================="
+        echo "   АВТО-НАСТРОЙКА ПАРАМЕТРОВ ИЗ ССЫЛКИ"
+        echo "==============================================="
+        echo "   User:   $GITHUB_USER"
+        echo "   Repo:   $GITHUB_REPO"
+        echo "   Branch: $BRANCH"
+        echo "   Folder: $REPO_FOLDER"
+    fi
+fi
 
 # Функция для скачивания файла
 download_file() {
@@ -21,30 +48,39 @@ download_file() {
 }
 
 # -----------------------------------------------------
-# 1. ПРОВЕРКА ЗАПУСКА (PIPE vs TTY)
+# 1. ПОДГОТОВКА ЗАГРУЗЧИКА
 # -----------------------------------------------------
 if [ ! -d "$INSTALL_DIR" ]; then
     mkdir -p "$INSTALL_DIR"
 fi
 
-# Если скрипт запущен через wget | bash, у него нет доступа к клавиатуре.
-# Скачиваем его копию и перезапускаем в нормальном режиме.
+# Если запуск из PIPE, скачиваем себя и перезапускаем
 if [ ! -t 0 ]; then
     echo "==============================================="
     echo "   ПОДГОТОВКА ЗАГРУЗЧИКА..."
     echo "==============================================="
     
+    # Формируем URL на основе (возможно обновленных) переменных
     SETUP_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
-    curl -s -L -o "$INSTALL_DIR/setup.sh" "$SETUP_URL"
+    
+    # Скачиваем setup.sh
+    if ! curl -s -L -o "$INSTALL_DIR/setup.sh" "$SETUP_URL"; then
+        echo "[ОШИБКА] Не удалось скачать скрипт. Проверьте правильность ссылки."
+        echo "URL: $SETUP_URL"
+        exit 1
+    fi
     chmod +x "$INSTALL_DIR/setup.sh"
 
-    # Перезапуск локальной копии с подключением терминала
+    # Перезапускаем локальную копию.
+    # ВАЖНО: Передаем $1 (URL) дальше, чтобы локальная копия тоже знала настройки!
     exec "$INSTALL_DIR/setup.sh" "$@" < /dev/tty
 fi
 
 # =====================================================
-#  ОСНОВНОЕ ТЕЛО СКРИПТА
+#  ДАЛЕЕ ОБЫЧНАЯ РАБОТА
 # =====================================================
+
+# (Очистка экрана убрана по просьбе)
 
 echo "==============================================="
 echo "   УПРАВЛЕНИЕ КОНТРОЛЛЕРОМ: УСТАНОВКА И ЗАПУСК"
@@ -53,11 +89,9 @@ echo "==============================================="
 # -----------------------------------------------------
 # 2. ПРОВЕРКА ПРАВ (SUDO + DIALOUT)
 # -----------------------------------------------------
-# Обновляем таймер sudo в фоне
 sudo -v
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
-# Проверка группы dialout
 if ! groups | grep -q "dialout"; then
     echo "[!] Пользователь $USER не имеет доступа к COM-портам (нет группы 'dialout')."
     echo "    Добавление прав..."
@@ -67,7 +101,7 @@ if ! groups | grep -q "dialout"; then
     echo "    Перезапуск сессии..."
     sleep 1
     
-    # Магия: перезапускаем скрипт с применением новой группы "на лету"
+    # Перезапускаем с сохранением аргументов ($@)
     exec sg dialout -c "/bin/bash $0 $@"
 fi
 echo "[OK] Права доступа к оборудованию подтверждены."
@@ -78,7 +112,6 @@ echo "[OK] Права доступа к оборудованию подтвер�
 cd "$INSTALL_DIR"
 echo "[*] Загрузка актуальных версий ПО ($GITHUB_USER/$GITHUB_REPO)..."
 
-# Получаем список файлов через API GitHub
 FILES_LIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER?ref=$BRANCH" | \
 python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
 
@@ -87,7 +120,6 @@ if [ -z "$FILES_LIST" ]; then
     exit 1
 fi
 
-# Скачиваем каждый файл
 for url in $FILES_LIST; do
     download_file "$url" "$INSTALL_DIR"
 done
@@ -102,16 +134,13 @@ echo "[OK] Файлы успешно обновлены."
 echo "[*] Проверка системного окружения..."
 
 PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-# Установка модуля venv, если его нет
 sudo apt install -y "python${PY_VER}-venv" > /dev/null 2>&1 || true
 
-# Создание виртуального окружения
 if [ ! -d "env" ]; then
     python3 -m venv env
 fi
 
 source env/bin/activate
-# Установка pyserial (readline встроен в Linux Python)
 pip install pyserial > /dev/null
 
 echo "[OK] Система готова к работе."
