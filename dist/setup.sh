@@ -10,17 +10,72 @@ INSTALL_DIR="$HOME/controlboard"
 
 set -e
 
+# Функция для скачивания файла
+download_file() {
+    local url=$1
+    local dest_dir=$2
+    local filename=$(basename "$url")
+    
+    echo "  -> Скачивание: $filename"
+    curl -s -L -o "$dest_dir/$filename" "$url"
+}
+
 # -----------------------------------------------------
-# 1. ПОДГОТОВКА И СКАЧИВАНИЕ (ЭТО РАБОТАЕТ ВСЕГДА)
+# 1. ПЕРВИЧНАЯ ИНИЦИАЛИЗАЦИЯ (ЕСЛИ ЗАПУСК ИЗ WGET)
 # -----------------------------------------------------
 if [ ! -d "$INSTALL_DIR" ]; then
     mkdir -p "$INSTALL_DIR"
 fi
 
-# Мы скачиваем файлы ДО проверки терминала, чтобы было что запускать
-echo "[*] Синхронизация файлов с GitHub в $INSTALL_DIR..."
+# Если stdin - не терминал (запуск через pipe | bash),
+# нам нужно сначала скачать самого себя, чтобы иметь возможность перезапуститься.
+if [ ! -t 0 ]; then
+    echo "==============================================="
+    echo "   ПОДГОТОВКА ЗАГРУЗЧИКА..."
+    echo "==============================================="
+    
+    # Скачиваем только setup.sh
+    SETUP_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
+    curl -s -L -o "$INSTALL_DIR/setup.sh" "$SETUP_URL"
+    chmod +x "$INSTALL_DIR/setup.sh"
 
-# Получаем список файлов
+    # Передаем управление локальной копии с подключением клавиатуры
+    exec "$INSTALL_DIR/setup.sh" "$@" < /dev/tty
+fi
+
+# =====================================================
+#  ДАЛЕЕ СКРИПТ РАБОТАЕТ В ОБЫЧНОМ РЕЖИМЕ
+# =====================================================
+
+echo "==============================================="
+echo "   CONTROL BOARD: SETUP & LAUNCHER"
+echo "==============================================="
+
+# -----------------------------------------------------
+# 2. ПРОВЕРКА ПРАВ
+# -----------------------------------------------------
+# Sudo Keep-alive
+sudo -v
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
+# Проверка Dialout
+if ! groups | grep -q "dialout"; then
+    echo "[!] Текущий пользователь ($USER) НЕ состоит в группе 'dialout'."
+    echo "    Добавляем и перезапускаем..."
+    sudo usermod -aG dialout "$USER"
+    sleep 1
+    exec sg dialout -c "/bin/bash $0 $@"
+fi
+
+# -----------------------------------------------------
+# 3. СКАЧИВАНИЕ ФАЙЛОВ (ОДИН РАЗ)
+# -----------------------------------------------------
+# Мы дошли сюда только если у нас есть TTY и права Dialout.
+# Теперь можно качать полный пакет.
+
+cd "$INSTALL_DIR"
+echo "[*] Синхронизация файлов с GitHub ($GITHUB_USER/$GITHUB_REPO)..."
+
 FILES_LIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER?ref=$BRANCH" | \
 python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
 
@@ -29,71 +84,20 @@ if [ -z "$FILES_LIST" ]; then
     exit 1
 fi
 
-# Скачиваем файлы
 for url in $FILES_LIST; do
-    filename=$(basename "$url")
-    # Скачиваем тихо, чтобы не засорять вывод
-    curl -s -L -o "$INSTALL_DIR/$filename" "$url"
+    download_file "$url" "$INSTALL_DIR"
 done
 
-chmod +x "$INSTALL_DIR/autoflash.sh"
-chmod +x "$INSTALL_DIR/setup.sh"
+chmod +x autoflash.sh
+chmod +x setup.sh
+echo "[OK] Все файлы обновлены."
 
 # -----------------------------------------------------
-# 2. МАГИЯ ПЕРЕЗАПУСКА (ВЫХОД ИЗ ТРУБЫ)
+# 4. НАСТРОЙКА ОКРУЖЕНИЯ
 # -----------------------------------------------------
-# Если скрипт запущен через pipe (wget | bash), то дескриптор 0 (stdin) не является терминалом.
-# Мы должны перезапустить локальную копию, подключив к ней реальный TTY.
-
-if [ ! -t 0 ]; then
-    echo "==============================================="
-    echo "   ПЕРЕХОД В ИНТЕРАКТИВНЫЙ РЕЖИМ..."
-    echo "==============================================="
-    # exec заменяет текущий процесс новым.
-    # < /dev/tty принудительно подключает клавиатуру к новому процессу.
-    exec "$INSTALL_DIR/setup.sh" "$@" < /dev/tty
-fi
-
-# =====================================================
-#  С ЭТОГО МОМЕНТА МЫ ГАРАНТИРОВАННО РАБОТАЕМ ИЗ ФАЙЛА
-#  И ИМЕЕМ ДОСТУП К КЛАВИАТУРЕ
-# =====================================================
-
-echo "==============================================="
-echo "   CONTROL BOARD: SETUP & LAUNCHER"
-echo "==============================================="
-
-# -----------------------------------------------------
-# 3. ПРОВЕРКА SUDO
-# -----------------------------------------------------
-echo "[*] Проверка прав суперпользователя..."
-sudo -v
-# Keep-alive для sudo
-while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
-
-# -----------------------------------------------------
-# 4. ПРОВЕРКА DIALOUT
-# -----------------------------------------------------
-if ! groups | grep -q "dialout"; then
-    echo "[!] Текущий пользователь ($USER) НЕ состоит в группе 'dialout'."
-    echo "    Добавляем..."
-    sudo usermod -aG dialout "$USER"
-    
-    echo "[OK] Добавлен. Перезапуск с новыми правами..."
-    sleep 1
-    # Перезапускаем этот же скрипт ($0), но через sg для применения группы
-    exec sg dialout -c "/bin/bash $0 $@"
-fi
-echo "[OK] Права доступа к COM-портам подтверждены."
-
-# -----------------------------------------------------
-# 5. НАСТРОЙКА ОКРУЖЕНИЯ
-# -----------------------------------------------------
-cd "$INSTALL_DIR"
 echo "[*] Настройка окружения..."
 
 PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-# Ставим venv
 sudo apt install -y "python${PY_VER}-venv" > /dev/null 2>&1 || true
 
 if [ ! -d "env" ]; then
@@ -101,13 +105,13 @@ if [ ! -d "env" ]; then
 fi
 
 source env/bin/activate
-# Устанавливаем ТОЛЬКО pyserial, readline встроен в Linux
+# Только pyserial, readline встроен в Linux
 pip install pyserial > /dev/null
 
 echo "[OK] Система готова."
 
 # -----------------------------------------------------
-# 6. ГЛАВНОЕ МЕНЮ
+# 5. МЕНЮ
 # -----------------------------------------------------
 while true; do
     echo ""
@@ -119,7 +123,6 @@ while true; do
     echo "3) Выход"
     echo ""
     
-    # Теперь тут не нужны костыли < /dev/tty, так как мы уже переключились глобально
     read -p "Выберите действие (1-3): " choice
 
     case $choice in
