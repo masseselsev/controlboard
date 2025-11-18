@@ -2,23 +2,22 @@
 
 #----------------------------------------------------------------------
 # Скрипт для автоматической прошивки контроллера.
-# Версия: Robust Retry + User Exit Option
+# Функции: Поиск порта, остановка служб, заморозка WDT, прошивка.
 #----------------------------------------------------------------------
 
-# 0. Выход при любой ошибке
+# Выход при любой ошибке
 set -e
 
 echo "--- Автоматический прошивальщик контроллера ---"
-echo "--- Версия Robust Retry ---"
 
 # --- ШАГ 1: ПОИСК ФАЙЛОВ ---
 echo -e "\n[1/7] Поиск необходимых файлов..."
 
 if [ ! -f "controlboard.py" ] || [ ! -f "commands.py" ]; then
-    echo "ОШИБКА: Не найдены 'controlboard.py' или 'commands.py'."
+    echo "ОШИБКА: Не найдены файлы 'controlboard.py' или 'commands.py'."
     exit 1
 fi
-echo "  [OK] Скрипты:  controlboard.py, commands.py"
+echo "  [OK] Скрипты обнаружены."
 
 HEX_FILES=()
 while IFS= read -r -d '' file; do
@@ -35,11 +34,10 @@ elif [ "$FILE_COUNT" -eq 1 ]; then
     HEX_FILE=${HEX_FILES[0]}
     echo "  [OK] Найден один файл прошивки: $HEX_FILE"
 else
-    echo "  - Найдено несколько .hex файлов. Пожалуйста, выберите один:"
+    echo "  - Найдено несколько файлов прошивки. Выберите нужный:"
     for i in "${!HEX_FILES[@]}"; do
         echo "    [$((i+1))] ${HEX_FILES[$i]}"
     done
-    # +++ ДОБАВЛЕНО: Пункт отмены +++
     echo "    [0] Отмена, выход в предыдущее меню"
     
     read -p "Введите номер файла (0-$FILE_COUNT): " CHOICE
@@ -49,7 +47,6 @@ else
         exit 1
     fi
 
-    # +++ ДОБАВЛЕНО: Обработка выхода +++
     if [ "$CHOICE" -eq 0 ]; then
         echo "Отмена операции."
         exit 0
@@ -63,11 +60,11 @@ else
     echo "  [OK] Выбрана прошивка: $HEX_FILE"
 fi
 
-# --- ШАГ 2: НАСТРОЙКА PYTHON VENV ---
+# --- ШАГ 2: НАСТРОЙКА ОКРУЖЕНИЯ ---
 echo -e "\n[2/7] Настройка Python окружения..."
 
 if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
-    echo "ОШИБКА: Требуется Python 3.10+."
+    echo "ОШИБКА: Требуется Python версии 3.10 или выше."
     exit 1
 fi
 
@@ -79,16 +76,16 @@ if [ ! -d "env" ]; then
 fi
 
 source env/bin/activate
-echo "  - Обновление pyserial..."
+echo "  - Установка зависимостей (pyserial)..."
 pip install pyserial > /dev/null
 
-# --- ШАГ 3: ОСТАНОВКА СЛУЖБ (ВРЕМЕННО) ---
+# --- ШАГ 3: ОСТАНОВКА СЛУЖБ ---
 echo -e "\n[3/7] Временная остановка служб для доступа к порту..."
 sudo service edgeserver stop
 sudo service vsmd stop
 echo "Службы остановлены. Порт свободен."
 
-# --- ШАГ 4: ПОИСК COM-ПОРТА ---
+# --- ШАГ 4: ПОИСК ПОРТА ---
 echo -e "\n[4/7] Поиск контроллера на COM-портах..."
 FOUND_PORT=""
 set +e
@@ -108,14 +105,14 @@ set -e
 
 if [ -z "$FOUND_PORT" ]; then
     echo "ОШИБКА: Не удалось найти контроллер."
-    echo "[!] АВАРИЙНЫЙ ЗАПУСК СЛУЖБ ОБРАТНО..."
+    echo "[!] АВАРИЙНЫЙ ЗАПУСК СЛУЖБ..."
     sudo service edgeserver start
     sudo service vsmd start
     deactivate
     exit 1
 fi
 
-# --- ШАГ 5: ЗАМОРОЗКА WDT (С ПОВТОРАМИ) ---
+# --- ШАГ 5: ЗАМОРОЗКА WATCHDOG ---
 echo -e "\n[5/7] Попытка остановки Watchdog (цикл)..."
 
 MAX_RETRIES=3
@@ -125,20 +122,20 @@ for (( i=1; i<=MAX_RETRIES; i++ ))
 do
     echo "  --- Попытка $i из $MAX_RETRIES ---"
     
-    # 1. Отправляем команду FREEZ
-    echo "  -> Отправка 'control freez'..."
+    # 1. Заморозка
+    echo "  -> Отправка команды заморозки (freez)..."
     python controlboard.py control freez -p "$FOUND_PORT" || true
     
-    # 2. Отправляем команду RESET (в 120)
-    echo "  -> Отправка 'pc_wdt_reset'..."
+    # 2. Сброс таймера в 120 (важно!)
+    echo "  -> Сброс таймера в 120 сек (reset)..."
     python controlboard.py control pc_wdt_reset -p "$FOUND_PORT" || true
     
-    # 3. Ждем стабилизации
+    # 3. Ожидание
     echo "  -> Ожидание 3 сек..."
     sleep 3
     
-    # 4. Проверяем результат
-    echo "  -> Проверка WDT..."
+    # 4. Проверка
+    echo "  -> Проверка состояния..."
     WDT_OUTPUT=$(python controlboard.py read pc_wdt -p "$FOUND_PORT" 2>&1 || true)
     
     if echo "$WDT_OUTPUT" | grep -q "120"; then
@@ -154,9 +151,10 @@ done
 if [ "$WDT_SUCCESS" = false ]; then
     echo ""
     echo "---------------------------------------------------"
-    echo "ОШИБКА: Не удалось остановить Watchdog на 120 сек."
+    echo "ОШИБКА: Не удалось остановить Watchdog за $MAX_RETRIES попыток."
+    echo "Возможна нестабильная связь или сбой контроллера."
     echo "---------------------------------------------------"
-    echo "[!] АВАРИЙНЫЙ ЗАПУСК СЛУЖБ ОБРАТНО..."
+    echo "[!] АВАРИЙНЫЙ ЗАПУСК СЛУЖБ..."
     sudo service edgeserver start
     sudo service vsmd start
     deactivate
@@ -171,15 +169,15 @@ echo "  - Файл: $HEX_FILE"
 FIRM_VERSION="00.00.00"
 if [[ $HEX_FILE =~ V([0-9]{2}\.[0-9]{2}\.[0-9]{2}) ]]; then
     FIRM_VERSION=${BASH_REMATCH[1]}
-    echo "  - Обнаружена версия: $FIRM_VERSION"
+    echo "  - Версия из файла: $FIRM_VERSION"
 fi
 
 CURRENT_DATE=$(date +%d.%m.%y)
 echo "  - Дата прошивки: $CURRENT_DATE"
 
-echo -e "\n>>> START UPDATE <<<"
+echo -e "\n>>> НАЧАЛО ОБНОВЛЕНИЯ <<<"
 if ! python controlboard.py update -p "$FOUND_PORT" -f "$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE"; then
-    echo "[FATAL ERROR] Ошибка во время прошивки!"
+    echo "[КРИТИЧЕСКАЯ ОШИБКА] Сбой во время прошивки!"
     echo "[!] Попытка запуска служб..."
     sudo service edgeserver start
     sudo service vsmd start
@@ -194,4 +192,4 @@ echo -e "\n[7/7] Запуск служб..."
 sudo service edgeserver start
 sudo service vsmd start
 echo "Службы edgeserver и vsmd запущены."
-echo "Система в рабочем режиме."
+echo "Система работает в штатном режиме."
