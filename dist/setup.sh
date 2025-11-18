@@ -109,7 +109,7 @@ while true; do
     echo "2) Запустить Прошивку (autoflash.sh)"
     echo "3) Выход"
     echo ""
-    read -p "Выберите действие (1-3): " choice
+    read -p "Выберите действие (1-3): " choice < /dev/tty
 
     case $choice in
         1)
@@ -120,7 +120,7 @@ while true; do
             echo "Запуск autoflash.sh..."
             ./autoflash.sh
             echo "Нажмите Enter, чтобы вернуться в меню..."
-            read
+            read < /dev/tty
             ;;
         3)
             echo "Выход."
