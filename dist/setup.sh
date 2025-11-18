@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # ================= ДЕФОЛТНАЯ КОНФИГУРАЦИЯ =================
-# (Используется, если скрипт запущен локально без аргументов)
 GITHUB_USER="masseselsev"
 GITHUB_REPO="controlboard"
 REPO_FOLDER="dist"
@@ -17,23 +16,15 @@ set -e
 if [ -n "$1" ]; then
     INPUT_URL="$1"
     # Regex для разбора ссылки GitHub raw
-    # Формат: https://raw.githubusercontent.com/USER/REPO/BRANCH/PATH...
     if [[ "$INPUT_URL" =~ https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/(.+) ]]; then
         GITHUB_USER="${BASH_REMATCH[1]}"
         GITHUB_REPO="${BASH_REMATCH[2]}"
         BRANCH="${BASH_REMATCH[3]}"
         FULL_PATH="${BASH_REMATCH[4]}"
-        
-        # Определяем папку, в которой лежит скрипт (убираем имя файла setup.sh)
+        # Определяем папку, в которой лежит скрипт
         REPO_FOLDER=$(dirname "$FULL_PATH")
         
-        echo "==============================================="
-        echo "   АВТО-НАСТРОЙКА ПАРАМЕТРОВ ИЗ ССЫЛКИ"
-        echo "==============================================="
-        echo "   User:   $GITHUB_USER"
-        echo "   Repo:   $GITHUB_REPO"
-        echo "   Branch: $BRANCH"
-        echo "   Folder: $REPO_FOLDER"
+        # (Вывод убран, чтобы не дублировался при перезапусках)
     fi
 fi
 
@@ -60,27 +51,21 @@ if [ ! -t 0 ]; then
     echo "   ПОДГОТОВКА ЗАГРУЗЧИКА..."
     echo "==============================================="
     
-    # Формируем URL на основе (возможно обновленных) переменных
     SETUP_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
     
-    # Скачиваем setup.sh
     if ! curl -s -L -o "$INSTALL_DIR/setup.sh" "$SETUP_URL"; then
-        echo "[ОШИБКА] Не удалось скачать скрипт. Проверьте правильность ссылки."
-        echo "URL: $SETUP_URL"
+        echo "[ОШИБКА] Не удалось скачать скрипт."
         exit 1
     fi
     chmod +x "$INSTALL_DIR/setup.sh"
 
-    # Перезапускаем локальную копию.
-    # ВАЖНО: Передаем $1 (URL) дальше, чтобы локальная копия тоже знала настройки!
+    # Перезапускаем локальную копию, передавая аргументы ($@) дальше
     exec "$INSTALL_DIR/setup.sh" "$@" < /dev/tty
 fi
 
 # =====================================================
 #  ДАЛЕЕ ОБЫЧНАЯ РАБОТА
 # =====================================================
-
-# (Очистка экрана убрана по просьбе)
 
 echo "==============================================="
 echo "   УПРАВЛЕНИЕ КОНТРОЛЛЕРОМ: УСТАНОВКА И ЗАПУСК"
@@ -93,30 +78,32 @@ sudo -v
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
 if ! groups | grep -q "dialout"; then
-    echo "[!] Пользователь $USER не имеет доступа к COM-портам (нет группы 'dialout')."
+    echo "[!] Пользователь $USER не имеет доступа к COM-портам."
     echo "    Добавление прав..."
     sudo usermod -aG dialout "$USER"
     
-    echo "[OK] Права добавлены."
-    echo "    Перезапуск сессии..."
+    echo "[OK] Права добавлены. Перезапуск..."
     sleep 1
     
     # Перезапускаем с сохранением аргументов ($@)
     exec sg dialout -c "/bin/bash $0 $@"
 fi
-echo "[OK] Права доступа к оборудованию подтверждены."
+echo "[OK] Права доступа подтверждены."
 
 # -----------------------------------------------------
 # 3. СИНХРОНИЗАЦИЯ ФАЙЛОВ
 # -----------------------------------------------------
 cd "$INSTALL_DIR"
-echo "[*] Загрузка актуальных версий ПО ($GITHUB_USER/$GITHUB_REPO)..."
+
+# Вот теперь выводим информацию о репозитории (один раз)
+echo "[*] Синхронизация с GitHub:"
+echo "    Источник: $GITHUB_USER/$GITHUB_REPO (Ветка: $BRANCH)"
 
 FILES_LIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER?ref=$BRANCH" | \
 python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
 
 if [ -z "$FILES_LIST" ]; then
-    echo "[ОШИБКА] Не удалось получить список файлов с GitHub."
+    echo "[ОШИБКА] Не удалось получить список файлов."
     exit 1
 fi
 
