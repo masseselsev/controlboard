@@ -114,11 +114,15 @@ while true; do
     case $choice in
         1)
             echo "Запуск app.py..."
-            python app.py
+            # ДОБАВЛЕНО: < /dev/tty
+            python app.py < /dev/tty
             ;;
         2)
             echo "Запуск autoflash.sh..."
-            ./autoflash.sh
+            # ДОБАВЛЕНО: < /dev/tty
+            ./autoflash.sh < /dev/tty
+            
+            # Здесь тоже на всякий случай (хотя мы уже правили это выше)
             echo "Нажмите Enter, чтобы вернуться в меню..."
             read < /dev/tty
             ;;
