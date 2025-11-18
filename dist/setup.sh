@@ -17,11 +17,11 @@ set -e
 # -----------------------------------------------------
 # 0. ВЫВОД ВЕРСИИ (ТОЛЬКО ОДИН РАЗ)
 # -----------------------------------------------------
+# Мы используем переменную окружения, чтобы не спамить версией при перезапусках
 if [ -z "$CB_SETUP_RUNNING" ]; then
     echo "--------------------------------------------------"
     echo "   Setup Script Version: $SCRIPT_VERSION"
     echo "--------------------------------------------------"
-    # Устанавливаем флаг, чтобы при перезапусках версия не дублировалась
     export CB_SETUP_RUNNING="true"
 fi
 
@@ -60,7 +60,11 @@ if [ ! -t 0 ]; then
     echo "   ПОДГОТОВКА ЗАГРУЗЧИКА..."
     echo "==============================================="
     
-    SETUP_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
+    # === ВАЖНОЕ ИЗМЕНЕНИЕ: СБРОС КЕША ПРИ ВНУТРЕННЕМ СКАЧИВАНИИ ===
+    # Добавляем ?t=timestamp, чтобы curl гарантированно взял свежую версию,
+    # а не старую из CDN-кеша.
+    CACHE_BUST="?t=$(date +%s)"
+    SETUP_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh$CACHE_BUST"
     
     if ! curl -s -L -o "$INSTALL_DIR/setup.sh" "$SETUP_URL"; then
         echo "[ОШИБКА] Не удалось скачать скрипт."
@@ -69,7 +73,8 @@ if [ ! -t 0 ]; then
     chmod +x "$INSTALL_DIR/setup.sh"
 
     # Перезапускаем локальную копию. Флаг CB_SETUP_RUNNING передастся сам.
-    exec "$INSTALL_DIR/setup.sh" "$@" < /dev/tty
+    # Передаем $1 (исходный URL), чтобы сохранить настройки, если они были.
+    exec "$INSTALL_DIR/setup.sh" "$1" < /dev/tty
 fi
 
 # =====================================================
@@ -94,8 +99,8 @@ if ! groups | grep -q "dialout"; then
     echo "[OK] Права добавлены. Перезапуск..."
     sleep 1
     
-    # Передаем флаг CB_SETUP_RUNNING явно, т.к. sg может сбросить окружение
-    exec sg dialout -c "CB_SETUP_RUNNING=true /bin/bash $0 $@"
+    # Передаем флаг CB_SETUP_RUNNING явно и аргументы
+    exec sg dialout -c "CB_SETUP_RUNNING=true /bin/bash $0 $1"
 fi
 echo "[OK] Права доступа подтверждены."
 
@@ -107,7 +112,8 @@ cd "$INSTALL_DIR"
 echo "[*] Синхронизация с GitHub:"
 echo "    Источник: $GITHUB_USER/$GITHUB_REPO (Ветка: $BRANCH)"
 
-FILES_LIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER?ref=$BRANCH" | \
+# Добавляем сброс кеша для списка файлов тоже, на всякий случай
+FILES_LIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER?ref=$BRANCH&t=$(date +%s)" | \
 python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
 
 if [ -z "$FILES_LIST" ]; then
@@ -116,8 +122,14 @@ if [ -z "$FILES_LIST" ]; then
 fi
 
 for url in $FILES_LIST; do
-    download_file "$url" "$INSTALL_DIR"
+    # Для файлов прошивок тоже добавляем анти-кеш при скачивании
+    # (GitHub raw ссылки игнорируют лишние параметры, но CDN обновляется)
+    download_file "$url?t=$(date +%s)" "$INSTALL_DIR"
 done
+
+# Переименовываем файлы обратно (убираем ?t=...), если curl сохранил их с хвостом
+# (curl -o обычно берет имя из аргумента, но перестрахуемся)
+# В функции download_file мы явно указываем имя файла без хвоста, так что там всё ок.
 
 chmod +x autoflash.sh
 chmod +x setup.sh
