@@ -2,17 +2,17 @@
 
 #----------------------------------------------------------------------
 # Скрипт для автоматической прошивки контроллера.
-# Версия: Safe Stop (остановка служб ДО проверок с откатом при ошибке)
+# Версия: Robust Retry (циклические попытки остановки WDT)
 #----------------------------------------------------------------------
 
 # 0. Выход при любой ошибке
 set -e
 
 echo "--- Автоматический прошивальщик контроллера ---"
-echo "--- Версия Safe Stop ---"
+echo "--- Версия Robust Retry ---"
 
 # --- ШАГ 1: ПОИСК ФАЙЛОВ ---
-echo -e "\n[1/8] Поиск необходимых файлов..."
+echo -e "\n[1/7] Поиск необходимых файлов..."
 
 if [ ! -f "controlboard.py" ] || [ ! -f "commands.py" ]; then
     echo "ОШИБКА: Не найдены 'controlboard.py' или 'commands.py'."
@@ -49,7 +49,7 @@ else
 fi
 
 # --- ШАГ 2: НАСТРОЙКА PYTHON VENV ---
-echo -e "\n[2/8] Настройка Python окружения..."
+echo -e "\n[2/7] Настройка Python окружения..."
 
 if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
     echo "ОШИБКА: Требуется Python 3.10+."
@@ -68,15 +68,13 @@ echo "  - Обновление pyserial..."
 pip install pyserial > /dev/null
 
 # --- ШАГ 3: ОСТАНОВКА СЛУЖБ (ВРЕМЕННО) ---
-# Мы обязаны остановить их СЕЙЧАС, чтобы найти порт и проверить WDT без помех.
-# Если что-то пойдет не так, мы запустим их обратно.
-echo -e "\n[3/8] Временная остановка служб для доступа к порту..."
+echo -e "\n[3/7] Временная остановка служб для доступа к порту..."
 sudo service edgeserver stop
 sudo service vsmd stop
 echo "Службы остановлены. Порт свободен."
 
 # --- ШАГ 4: ПОИСК COM-ПОРТА ---
-echo -e "\n[4/8] Поиск контроллера на COM-портах..."
+echo -e "\n[4/7] Поиск контроллера на COM-портах..."
 FOUND_PORT=""
 set +e
 for port in /dev/ttyUSB{0,1,2,3,4}; do
@@ -102,30 +100,46 @@ if [ -z "$FOUND_PORT" ]; then
     exit 1
 fi
 
-# --- ШАГ 5: ЗАМОРОЗКА WDT ---
-echo -e "\n[5/8] Остановка Watchdog (control freez) на $FOUND_PORT..."
-# Если эта команда упадет, сработает set -e, но нам надо перезапустить службы.
-# Поэтому используем блок ||
-if ! python controlboard.py control freez -p "$FOUND_PORT"; then
-    echo "[ERROR] Ошибка при отправке команды freez."
-    echo "[!] АВАРИЙНЫЙ ЗАПУСК СЛУЖБ ОБРАТНО..."
-    sudo service edgeserver start
-    sudo service vsmd start
-    exit 1
-fi
+# --- ШАГ 5: ЗАМОРОЗКА WDT (С ПОВТОРАМИ) ---
+echo -e "\n[5/7] Попытка остановки Watchdog (цикл)..."
 
-# --- ШАГ 6: ПРОВЕРКА WDT ---
-echo -e "\n[6/8] Проверка статуса Watchdog..."
-echo "  - Ожидание 5 секунд..."
-sleep 5
-echo "  - Чтение таймера WDT..."
-WDT_OUTPUT=$(python controlboard.py read pc_wdt -p "$FOUND_PORT")
-echo "${WDT_OUTPUT}"
+MAX_RETRIES=3
+WDT_SUCCESS=false
 
-if ! echo "${WDT_OUTPUT}" | grep -q "120"; then
+for (( i=1; i<=MAX_RETRIES; i++ ))
+do
+    echo "  --- Попытка $i из $MAX_RETRIES ---"
+    
+    # 1. Отправляем команду FREEZ
+    echo "  -> Отправка команды 'control freez'..."
+    # Используем || true, чтобы скрипт не вылетел, если команда вернет ошибку CRC
+    python controlboard.py control freez -p "$FOUND_PORT" || true
+    
+    # 2. Ждем стабилизации
+    echo "  -> Ожидание 3 сек..."
+    sleep 3
+    
+    # 3. Проверяем результат
+    echo "  -> Проверка WDT..."
+    WDT_OUTPUT=$(python controlboard.py read pc_wdt -p "$FOUND_PORT" 2>&1 || true)
+    
+    if echo "$WDT_OUTPUT" | grep -q "120"; then
+        echo "  [OK] УСПЕХ! Watchdog остановлен на 120 сек."
+        WDT_SUCCESS=true
+        break
+    else
+        echo "  [!] Неудача. Ответ контроллера:"
+        # Выводим только строку со значением, чтобы не спамить
+        echo "$WDT_OUTPUT" | grep "Seconds left" || echo "    (Нет корректного ответа)"
+    fi
+done
+
+# Если после всех попыток успеха нет - выходим
+if [ "$WDT_SUCCESS" = false ]; then
+    echo ""
     echo "---------------------------------------------------"
-    echo "ОШИБКА: Watchdog НЕ остановлен (не получено '120')."
-    echo "Безопасная прошивка невозможна."
+    echo "ОШИБКА: Не удалось остановить Watchdog за $MAX_RETRIES попыток."
+    echo "Возможна нестабильная связь или сбой контроллера."
     echo "---------------------------------------------------"
     echo "[!] АВАРИЙНЫЙ ЗАПУСК СЛУЖБ ОБРАТНО..."
     sudo service edgeserver start
@@ -133,11 +147,9 @@ if ! echo "${WDT_OUTPUT}" | grep -q "120"; then
     deactivate
     exit 1
 fi
-echo "  [OK] Watchdog успешно остановлен (120)."
 
-# --- ШАГ 7: ЗАПУСК ПРОШИВКИ ---
-# Службы УЖЕ остановлены на шаге 3, можно шить спокойно.
-echo -e "\n[7/8] ЗАПУСК ПРОШИВКИ! Не отключайте питание!"
+# --- ШАГ 6: ЗАПУСК ПРОШИВКИ ---
+echo -e "\n[6/7] ЗАПУСК ПРОШИВКИ! Не отключайте питание!"
 echo "  - Порт: $FOUND_PORT"
 echo "  - Файл: $HEX_FILE"
 
@@ -151,7 +163,6 @@ CURRENT_DATE=$(date +%d.%m.%y)
 echo "  - Дата прошивки: $CURRENT_DATE"
 
 echo -e "\n>>> START UPDATE <<<"
-# Если прошивка упадет, мы всё равно должны попытаться поднять службы (trap бы помог, но сделаем проще)
 if ! python controlboard.py update -p "$FOUND_PORT" -f "$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE"; then
     echo "[FATAL ERROR] Ошибка во время прошивки!"
     echo "[!] Попытка запуска служб..."
@@ -160,11 +171,11 @@ if ! python controlboard.py update -p "$FOUND_PORT" -f "$HEX_FILE" --ver_u "$FIR
     exit 1
 fi
 
-# --- ШАГ 8: ЗАВЕРШЕНИЕ ---
+# --- ШАГ 7: ЗАВЕРШЕНИЕ ---
 echo -e "\n--- ПРОШИВКА УСПЕШНО ЗАВЕРШЕНА ---"
 deactivate
 
-echo -e "\n[8/8] Запуск служб..."
+echo -e "\n[7/7] Запуск служб..."
 sudo service edgeserver start
 sudo service vsmd start
 echo "Службы edgeserver и vsmd запущены."
