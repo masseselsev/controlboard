@@ -3,8 +3,8 @@
 # ================= КОНФИГУРАЦИЯ =================
 GITHUB_USER="masseselsev"
 GITHUB_REPO="controlboard"
-REPO_FOLDER="dist"      # Папка в репозитории, где лежат скрипты и прошивки
-BRANCH="main"           # Ветка (обычно main или master)
+REPO_FOLDER="dist"      # Папка в репозитории
+BRANCH="main"
 INSTALL_DIR="$HOME/controlboard"
 # ================================================
 
@@ -19,7 +19,7 @@ echo "==============================================="
 # -----------------------------------------------------
 echo "[*] Проверка прав суперпользователя..."
 sudo -v
-# Обновляем таймер sudo в фоне, чтобы пароль не спрашивался повторно
+# Обновляем таймер sudo в фоне
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
 # -----------------------------------------------------
@@ -34,7 +34,7 @@ if ! groups | grep -q "dialout"; then
     echo "    Перезапуск скрипта с новыми правами..."
     sleep 2
     
-    # Перезапускаем этот же скрипт в новой группе
+    # Перезапускаем скрипт
     exec sg dialout -c "/bin/bash $0 $@"
 fi
 echo "[OK] Права доступа к COM-портам подтверждены."
@@ -50,8 +50,7 @@ cd "$INSTALL_DIR"
 
 echo "[*] Синхронизация файлов с GitHub ($GITHUB_USER/$GITHUB_REPO/$REPO_FOLDER)..."
 
-# Используем Python для получения списка файлов через GitHub API (чтобы не ставить jq)
-# Это скачает ВСЕ файлы из указанной папки репозитория
+# Скачиваем список файлов и сами файлы
 FILES_LIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER?ref=$BRANCH" | \
 python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
 
@@ -75,12 +74,11 @@ echo "[OK] Все файлы обновлены."
 # -----------------------------------------------------
 echo "[*] Проверка системных зависимостей..."
 
-# Определяем версию Python для установки venv
 PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 echo "    Detected Python $PY_VER"
 
-# Устанавливаем python3-venv без лишних вопросов
-sudo apt install -y "python${PY_VER}-venv" > /dev/null 2>&1 || echo "    (Пакет venv уже установлен или не найден, пробуем продолжить)"
+# Ставим venv пакет
+sudo apt install -y "python${PY_VER}-venv" > /dev/null 2>&1 || echo "    (Пакет venv уже установлен или не найден, продолжаем)"
 
 if [ ! -d "env" ]; then
     echo "    Создание виртуального окружения (env)..."
@@ -89,9 +87,13 @@ else
     echo "    Виртуальное окружение уже существует."
 fi
 
-echo "    Обновление библиотек (pyserial, readline)..."
+echo "    Обновление библиотек (pyserial)..."
 source env/bin/activate
-pip install pyserial readline > /dev/null
+
+# === ИСПРАВЛЕНИЕ ЗДЕСЬ ===
+# Убрали 'readline', так как он встроен в Python на Linux
+pip install pyserial > /dev/null 
+# =========================
 
 echo "[OK] Окружение готово."
 
@@ -116,9 +118,7 @@ while true; do
             ;;
         2)
             echo "Запуск autoflash.sh..."
-            # Запускаем через bash, чтобы он сам внутри себя разобрался
             ./autoflash.sh
-            # После прошивки (которая может перезагрузить службы) предлагаем меню снова
             echo "Нажмите Enter, чтобы вернуться в меню..."
             read
             ;;
