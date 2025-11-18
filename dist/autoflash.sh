@@ -2,14 +2,14 @@
 
 #----------------------------------------------------------------------
 # Скрипт для автоматической прошивки контроллера.
-# Версия: Freeze + Reset (гарантирует 120 сек)
+# Версия: Robust Retry + User Exit Option
 #----------------------------------------------------------------------
 
 # 0. Выход при любой ошибке
 set -e
 
 echo "--- Автоматический прошивальщик контроллера ---"
-echo "--- Версия Freeze + Reset ---"
+echo "--- Версия Robust Retry ---"
 
 # --- ШАГ 1: ПОИСК ФАЙЛОВ ---
 echo -e "\n[1/7] Поиск необходимых файлов..."
@@ -39,9 +39,24 @@ else
     for i in "${!HEX_FILES[@]}"; do
         echo "    [$((i+1))] ${HEX_FILES[$i]}"
     done
-    read -p "Введите номер файла (1-$FILE_COUNT): " CHOICE
-    if ! [[ "$CHOICE" =~ ^[0-9]+$ ]] || [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "$FILE_COUNT" ]; then
+    # +++ ДОБАВЛЕНО: Пункт отмены +++
+    echo "    [0] Отмена, выход в предыдущее меню"
+    
+    read -p "Введите номер файла (0-$FILE_COUNT): " CHOICE
+    
+    if ! [[ "$CHOICE" =~ ^[0-9]+$ ]]; then
         echo "ОШИБКА: Неверный ввод."
+        exit 1
+    fi
+
+    # +++ ДОБАВЛЕНО: Обработка выхода +++
+    if [ "$CHOICE" -eq 0 ]; then
+        echo "Отмена операции."
+        exit 0
+    fi
+
+    if [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "$FILE_COUNT" ]; then
+        echo "ОШИБКА: Неверный номер."
         exit 1
     fi
     HEX_FILE=${HEX_FILES[$((CHOICE-1))]}
@@ -110,13 +125,12 @@ for (( i=1; i<=MAX_RETRIES; i++ ))
 do
     echo "  --- Попытка $i из $MAX_RETRIES ---"
     
-    # 1. Отправляем команду FREEZ (Заморозка)
+    # 1. Отправляем команду FREEZ
     echo "  -> Отправка 'control freez'..."
     python controlboard.py control freez -p "$FOUND_PORT" || true
     
-    # 2. Отправляем команду RESET (Чтобы выставить 120)
-    # +++ ДОБАВЛЕНО +++
-    echo "  -> Отправка 'pc_wdt_reset' (сброс в 120)..."
+    # 2. Отправляем команду RESET (в 120)
+    echo "  -> Отправка 'pc_wdt_reset'..."
     python controlboard.py control pc_wdt_reset -p "$FOUND_PORT" || true
     
     # 3. Ждем стабилизации
@@ -127,7 +141,6 @@ do
     echo "  -> Проверка WDT..."
     WDT_OUTPUT=$(python controlboard.py read pc_wdt -p "$FOUND_PORT" 2>&1 || true)
     
-    # Проверяем, есть ли "120" (или хотя бы 119/118, но с reset должно быть 120 если заморожен)
     if echo "$WDT_OUTPUT" | grep -q "120"; then
         echo "  [OK] УСПЕХ! Watchdog остановлен на 120 сек."
         WDT_SUCCESS=true
