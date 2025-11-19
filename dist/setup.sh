@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="8"
+SCRIPT_VERSION="9"
 # ==================================================
 
 # ================= КОНФИГУРАЦИЯ =================
@@ -27,31 +27,34 @@ fi
 # -----------------------------------------------------
 # 1. АВТО-КОНФИГУРАЦИЯ ИЗ URL
 # -----------------------------------------------------
+# По умолчанию используем базовый URL
+CURRENT_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
+
 if [ -n "$1" ]; then
     INPUT_URL="$1"
-    if [[ "$INPUT_URL" =~ https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/(.+) ]]; then
+    # Очищаем URL от параметров запроса (?...) для чистого парсинга
+    CLEAN_INPUT_URL="${INPUT_URL%%\?*}"
+    
+    if [[ "$CLEAN_INPUT_URL" =~ https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/(.+) ]]; then
         GITHUB_USER="${BASH_REMATCH[1]}"
         GITHUB_REPO="${BASH_REMATCH[2]}"
         BRANCH="${BASH_REMATCH[3]}"
         FULL_PATH="${BASH_REMATCH[4]}"
         REPO_FOLDER=$(dirname "$FULL_PATH")
+        
+        # Обновляем CURRENT_URL, чтобы он соответствовал тому, что ввел юзер
+        CURRENT_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
     fi
 fi
 
-# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ СКАЧИВАНИЯ ---
+# Функция для скачивания файла
 download_file() {
     local url=$1
     local dest_dir=$2
-    
-    # 1. Отрезаем параметры (?t=...) от URL, чтобы получить чистое имя
     local clean_url="${url%%\?*}"
-    
-    # 2. Получаем имя файла (например, app.py)
     local filename=$(basename "$clean_url")
     
     echo "  -> Скачивание: $filename"
-    
-    # 3. Сохраняем файл под ЧИСТЫМ именем, но качаем по ПОЛНОЙ ссылке (с анти-кешем)
     if curl -s -L -o "$dest_dir/$filename" "$url"; then
         return 0
     else
@@ -73,15 +76,16 @@ if [ ! -t 0 ]; then
     echo "==============================================="
     
     CACHE_BUST="?t=$(date +%s)"
-    SETUP_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh$CACHE_BUST"
+    # Используем вычисленный URL
+    SETUP_URL="${CURRENT_URL}${CACHE_BUST}"
     
-    # Качаем себя вручную через curl (тут функцию еще нельзя использовать)
     if ! curl -s -L -o "$INSTALL_DIR/setup.sh" "$SETUP_URL"; then
         echo "[ОШИБКА] Не удалось скачать скрипт."
         exit 1
     fi
     chmod +x "$INSTALL_DIR/setup.sh"
 
+    # Перезапускаем локальную копию, передавая ей исходный URL ($1)
     exec "$INSTALL_DIR/setup.sh" "$1" < /dev/tty
 fi
 
@@ -94,7 +98,7 @@ echo "   УПРАВЛЕНИЕ КОНТРОЛЛЕРОМ"
 echo "==============================================="
 
 # -----------------------------------------------------
-# 3. ПРОВЕРКА ПРАВ (SUDO + DIALOUT)
+# 3. ПРОВЕРКА ПРАВ
 # -----------------------------------------------------
 sudo -v
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
@@ -116,7 +120,7 @@ echo "[OK] Права доступа подтверждены."
 # -----------------------------------------------------
 cd "$INSTALL_DIR"
 
-# Удаляем старые файлы с "кривыми" именами (с предыдущего запуска)
+# Удаляем старые файлы с "кривыми" именами
 rm -f *\?t\=*
 
 echo "[*] Синхронизация с GitHub:"
@@ -131,7 +135,6 @@ if [ -z "$FILES_LIST" ]; then
 fi
 
 for url in $FILES_LIST; do
-    # Добавляем анти-кеш, но теперь download_file это обработает корректно
     download_file "$url?t=$(date +%s)" "$INSTALL_DIR"
 done
 
@@ -140,7 +143,25 @@ chmod +x setup.sh
 echo "[OK] Файлы успешно обновлены."
 
 # -----------------------------------------------------
-# 5. ПОДГОТОВКА ОКРУЖЕНИЯ
+# 5. СОЗДАНИЕ RUN.SH (QUICK LAUNCHER)
+# -----------------------------------------------------
+RUN_SCRIPT="$INSTALL_DIR/run.sh"
+
+# Генерируем скрипт запуска.
+# Обратите внимание: мы экранируем $(date), чтобы она вычислялась при ЗАПУСКЕ run.sh, а не сейчас.
+cat > "$RUN_SCRIPT" <<EOF
+#!/bin/bash
+echo "Запуск обновления и меню..."
+url="${CURRENT_URL}?v=\$(date +%s)"
+wget -O - "\$url" | bash -s "\$url"
+EOF
+
+chmod +x "$RUN_SCRIPT"
+echo "[OK] Создан скрипт быстрого запуска: $RUN_SCRIPT"
+
+
+# -----------------------------------------------------
+# 6. ПОДГОТОВКА ОКРУЖЕНИЯ
 # -----------------------------------------------------
 echo "[*] Проверка системного окружения..."
 
@@ -157,7 +178,7 @@ pip install pyserial > /dev/null
 echo "[OK] Система готова к работе."
 
 # -----------------------------------------------------
-# 6. ИНТЕРАКТИВНОЕ МЕНЮ
+# 7. ИНТЕРАКТИВНОЕ МЕНЮ
 # -----------------------------------------------------
 while true; do
     echo ""
