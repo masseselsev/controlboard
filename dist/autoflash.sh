@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# ================= ВЕРСИЯ СКРИПТА =================
+SCRIPT_VERSION="1"
+# ==================================================
+
 #----------------------------------------------------------------------
 # Скрипт для автоматической прошивки контроллера.
 # Функции: Поиск порта, остановка служб, заморозка WDT, прошивка, лог.
@@ -8,7 +12,7 @@
 # Выход при любой ошибке
 set -e
 
-echo "--- Автоматический прошивальщик контроллера ---"
+echo "--- Автоматический прошивальщик контроллера (v$SCRIPT_VERSION) ---"
 
 # --- ШАГ 1: ПОИСК ФАЙЛОВ ---
 echo -e "\n[1/7] Поиск необходимых файлов..."
@@ -20,9 +24,10 @@ fi
 echo "  [OK] Скрипты обнаружены."
 
 HEX_FILES=()
+# Ищем файлы и сортируем их по алфавиту
 while IFS= read -r -d '' file; do
     HEX_FILES+=("$(basename "$file")")
-done < <(find . -maxdepth 1 -name "*.hex" -print0)
+done < <(find . -maxdepth 1 -name "*.hex" -print0 | sort -z)
 
 FILE_COUNT=${#HEX_FILES[@]}
 HEX_FILE=""
@@ -38,8 +43,11 @@ else
     for i in "${!HEX_FILES[@]}"; do
         echo "    [$((i+1))] ${HEX_FILES[$i]}"
     done
+    
+    echo ""
     echo "    [0] Отмена, выход в предыдущее меню"
     
+    echo ""
     read -p "Введите номер файла (0-$FILE_COUNT): " CHOICE
     
     if ! [[ "$CHOICE" =~ ^[0-9]+$ ]]; then
@@ -186,7 +194,7 @@ fi
 
 # --- ЛОГИРОВАНИЕ УСПЕХА ---
 LOG_FILE="$HOME/smalledge_fw_version"
-TIMESTAMP=$(date "+%d.%m.%Y, %H:%M:")
+TIMESTAMP=$(date "+%d.%m.%Y, %H:%M")
 echo "$TIMESTAMP $FIRM_VERSION" >> "$LOG_FILE"
 echo -e "\n  [LOG] Запись добавлена в журнал: $LOG_FILE"
 
