@@ -186,7 +186,7 @@ fi
 
 # --- ЛОГИРОВАНИЕ УСПЕХА ---
 LOG_FILE="$HOME/smalledge_fw_version"
-TIMESTAMP=$(date "+%d.%m.%Y, %H:%M")
+TIMESTAMP=$(date "+%d.%m.%Y, %H:%M:")
 echo "$TIMESTAMP $FIRM_VERSION" >> "$LOG_FILE"
 echo -e "\n  [LOG] Запись добавлена в журнал: $LOG_FILE"
 
