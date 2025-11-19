@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="9"
+SCRIPT_VERSION="10"
 # ==================================================
 
 # ================= КОНФИГУРАЦИЯ =================
@@ -15,7 +15,7 @@ INSTALL_DIR="$HOME/controlboard"
 set -e
 
 # -----------------------------------------------------
-# 0. ВЫВОД ВЕРСИИ (ТОЛЬКО ОДИН РАЗ)
+# 0. ВЫВОД ВЕРСИИ
 # -----------------------------------------------------
 if [ -z "$CB_SETUP_RUNNING" ]; then
     echo "--------------------------------------------------"
@@ -25,35 +25,28 @@ if [ -z "$CB_SETUP_RUNNING" ]; then
 fi
 
 # -----------------------------------------------------
-# 1. АВТО-КОНФИГУРАЦИЯ ИЗ URL
+# 1. АВТО-КОНФИГУРАЦИЯ
 # -----------------------------------------------------
-# По умолчанию используем базовый URL
-CURRENT_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
-
 if [ -n "$1" ]; then
     INPUT_URL="$1"
-    # Очищаем URL от параметров запроса (?...) для чистого парсинга
     CLEAN_INPUT_URL="${INPUT_URL%%\?*}"
-    
     if [[ "$CLEAN_INPUT_URL" =~ https://raw.githubusercontent.com/([^/]+)/([^/]+)/([^/]+)/(.+) ]]; then
         GITHUB_USER="${BASH_REMATCH[1]}"
         GITHUB_REPO="${BASH_REMATCH[2]}"
         BRANCH="${BASH_REMATCH[3]}"
         FULL_PATH="${BASH_REMATCH[4]}"
         REPO_FOLDER=$(dirname "$FULL_PATH")
-        
-        # Обновляем CURRENT_URL, чтобы он соответствовал тому, что ввел юзер
         CURRENT_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
     fi
+else
+    CURRENT_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
 fi
 
-# Функция для скачивания файла
 download_file() {
     local url=$1
     local dest_dir=$2
     local clean_url="${url%%\?*}"
     local filename=$(basename "$clean_url")
-    
     echo "  -> Скачивание: $filename"
     if curl -s -L -o "$dest_dir/$filename" "$url"; then
         return 0
@@ -74,9 +67,7 @@ if [ ! -t 0 ]; then
     echo "==============================================="
     echo "   ПОДГОТОВКА ЗАГРУЗЧИКА..."
     echo "==============================================="
-    
     CACHE_BUST="?t=$(date +%s)"
-    # Используем вычисленный URL
     SETUP_URL="${CURRENT_URL}${CACHE_BUST}"
     
     if ! curl -s -L -o "$INSTALL_DIR/setup.sh" "$SETUP_URL"; then
@@ -84,8 +75,6 @@ if [ ! -t 0 ]; then
         exit 1
     fi
     chmod +x "$INSTALL_DIR/setup.sh"
-
-    # Перезапускаем локальную копию, передавая ей исходный URL ($1)
     exec "$INSTALL_DIR/setup.sh" "$1" < /dev/tty
 fi
 
@@ -107,10 +96,8 @@ if ! groups | grep -q "dialout"; then
     echo "[!] Пользователь $USER не имеет доступа к COM-портам."
     echo "    Добавление прав..."
     sudo usermod -aG dialout "$USER"
-    
     echo "[OK] Права добавлены. Перезапуск..."
     sleep 1
-    
     exec sg dialout -c "CB_SETUP_RUNNING=true /bin/bash $0 $1"
 fi
 echo "[OK] Права доступа подтверждены."
@@ -119,8 +106,6 @@ echo "[OK] Права доступа подтверждены."
 # 4. СИНХРОНИЗАЦИЯ ФАЙЛОВ
 # -----------------------------------------------------
 cd "$INSTALL_DIR"
-
-# Удаляем старые файлы с "кривыми" именами
 rm -f *\?t\=*
 
 echo "[*] Синхронизация с GitHub:"
@@ -143,33 +128,59 @@ chmod +x setup.sh
 echo "[OK] Файлы успешно обновлены."
 
 # -----------------------------------------------------
-# 5. СОЗДАНИЕ RUN.SH (QUICK LAUNCHER)
+# 5. СОЗДАНИЕ RUN.SH
 # -----------------------------------------------------
 RUN_SCRIPT="$INSTALL_DIR/run.sh"
-
-# Генерируем скрипт запуска.
-# Обратите внимание: мы экранируем $(date), чтобы она вычислялась при ЗАПУСКЕ run.sh, а не сейчас.
 cat > "$RUN_SCRIPT" <<EOF
 #!/bin/bash
 echo "Запуск обновления и меню..."
 url="${CURRENT_URL}?v=\$(date +%s)"
 wget -O - "\$url" | bash -s "\$url"
 EOF
-
 chmod +x "$RUN_SCRIPT"
 echo "[OK] Создан скрипт быстрого запуска: $RUN_SCRIPT"
 
-
 # -----------------------------------------------------
-# 6. ПОДГОТОВКА ОКРУЖЕНИЯ
+# 6. ПОДГОТОВКА ОКРУЖЕНИЯ (ИСПРАВЛЕНО)
 # -----------------------------------------------------
 echo "[*] Проверка системного окружения..."
 
 PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-sudo apt install -y "python${PY_VER}-venv" > /dev/null 2>&1 || true
+VENV_PKG="python${PY_VER}-venv"
+
+# 1. Обновляем списки пакетов (ОБЯЗАТЕЛЬНО)
+echo "    Обновление списков пакетов (apt update)..."
+sudo apt update > /dev/null 2>&1
+
+# 2. Пробуем установить venv
+echo "    Проверка пакета $VENV_PKG..."
+if ! dpkg -s "$VENV_PKG" >/dev/null 2>&1; then
+    echo "    Установка $VENV_PKG (может занять время)..."
+    # Убираем > /dev/null, чтобы видеть ошибки, если они будут
+    if ! sudo apt install -y "$VENV_PKG"; then
+        echo "[CRITICAL ERROR] Не удалось установить $VENV_PKG."
+        echo "Попробуйте выполнить вручную: sudo apt update && sudo apt install -y $VENV_PKG"
+        exit 1
+    fi
+else
+    echo "    Пакет $VENV_PKG уже установлен."
+fi
+
+# 3. Пересоздаем venv, если он был сломан
+if [ -d "env" ]; then
+    # Проверяем, жив ли venv
+    if [ ! -f "env/bin/activate" ]; then
+        echo "    Обнаружено поврежденное окружение. Пересоздание..."
+        rm -rf env
+    fi
+fi
 
 if [ ! -d "env" ]; then
-    python3 -m venv env
+    echo "    Создание виртуального окружения (env)..."
+    if ! python3 -m venv env; then
+        echo "[CRITICAL ERROR] Ошибка при создании venv."
+        exit 1
+    fi
 fi
 
 source env/bin/activate
