@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="10"
+SCRIPT_VERSION="11"
 # ==================================================
 
 # ================= КОНФИГУРАЦИЯ =================
@@ -141,22 +141,19 @@ chmod +x "$RUN_SCRIPT"
 echo "[OK] Создан скрипт быстрого запуска: $RUN_SCRIPT"
 
 # -----------------------------------------------------
-# 6. ПОДГОТОВКА ОКРУЖЕНИЯ (ИСПРАВЛЕНО)
+# 6. ПОДГОТОВКА ОКРУЖЕНИЯ
 # -----------------------------------------------------
 echo "[*] Проверка системного окружения..."
 
 PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 VENV_PKG="python${PY_VER}-venv"
 
-# 1. Обновляем списки пакетов (ОБЯЗАТЕЛЬНО)
 echo "    Обновление списков пакетов (apt update)..."
 sudo apt update > /dev/null 2>&1
 
-# 2. Пробуем установить venv
 echo "    Проверка пакета $VENV_PKG..."
 if ! dpkg -s "$VENV_PKG" >/dev/null 2>&1; then
     echo "    Установка $VENV_PKG (может занять время)..."
-    # Убираем > /dev/null, чтобы видеть ошибки, если они будут
     if ! sudo apt install -y "$VENV_PKG"; then
         echo "[CRITICAL ERROR] Не удалось установить $VENV_PKG."
         echo "Попробуйте выполнить вручную: sudo apt update && sudo apt install -y $VENV_PKG"
@@ -166,9 +163,7 @@ else
     echo "    Пакет $VENV_PKG уже установлен."
 fi
 
-# 3. Пересоздаем venv, если он был сломан
 if [ -d "env" ]; then
-    # Проверяем, жив ли venv
     if [ ! -f "env/bin/activate" ]; then
         echo "    Обнаружено поврежденное окружение. Пересоздание..."
         rm -rf env
@@ -199,9 +194,10 @@ while true; do
     echo "1) Консоль управления (app.py)"
     echo "2) Прошивка контроллера (autoflash.sh)"
     echo "3) Выход"
+    echo "4) Выход с перезагрузкой системы"
     echo ""
     
-    read -p "Ваш выбор (1-3): " choice
+    read -p "Ваш выбор (1-4): " choice
 
     case $choice in
         1)
@@ -217,6 +213,10 @@ while true; do
         3)
             echo "Выход."
             exit 0
+            ;;
+        4)
+            echo "Перезагрузка системы..."
+            sudo reboot
             ;;
         *)
             echo "Неверный выбор."
