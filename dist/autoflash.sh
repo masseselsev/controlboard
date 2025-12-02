@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="12"
+SCRIPT_VERSION="13"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -52,6 +52,16 @@ if [ ! -f "controlboard.py" ] || [ ! -f "commands.py" ]; then
     exit 1
 fi
 echo "  [OK] Скрипты обнаружены."
+
+
+# --- ОТОБРАЖЕНИЕ ТЕКУЩЕЙ ВЕРСИИ ---
+FW_VERSION_FILE="$HOME/smalledge_fw_version"
+if [ -f "$FW_VERSION_FILE" ]; then
+    CURRENT_FW=$(tail -n 1 "$FW_VERSION_FILE" | awk '{print $2}')
+    echo "  [INFO] Текущая версия прошивки: $CURRENT_FW"
+else
+    echo "  [INFO] Файл с версией отсутствует, предположительно заводская прошивка."
+fi
 
 HEX_FILES=()
 # Ищем файлы и сортируем их по алфавиту

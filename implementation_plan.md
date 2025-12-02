@@ -31,6 +31,7 @@ Create a robust cleanup mechanism for the `controlboard` project to facilitate t
 - [x] Track package installations.
 - [x] Log success/failure of flashing process.
 - [x] Increment `SCRIPT_VERSION`.
+- [ ] Display current firmware version from `~/smalledge_fw_version`.
 
 ### Cleanup Mechanism
 #### [NEW] [dev_cleanup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/dev_cleanup.sh)

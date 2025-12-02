@@ -31,6 +31,10 @@ I have implemented a mechanism to track system changes made by the installation 
 - Added a hidden/developer option **00) Полная очистка** (displayed in red) to the main menu.
 - This option executes `dev_cleanup.sh` directly from the menu interface.
 
+### 5. Firmware Version Display (`autoflash.sh`)
+- The script now checks `~/smalledge_fw_version` on startup.
+- Displays the current firmware version or a default message if the file is missing.
+
 ## Critical Implementation Details
 
 > [!IMPORTANT]
