@@ -14,6 +14,36 @@ set -e
 
 echo "--- Автоматический прошивальщик контроллера (v$SCRIPT_VERSION) ---"
 
+# --- ЛОГИРОВАНИЕ ---
+GLOBAL_LOG="$HOME/controlboard.log"
+STATE_FILE="dev_init.txt"
+
+log_msg() {
+    local msg="$1"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [FLASH] $msg" >> "$GLOBAL_LOG"
+}
+
+track_change() {
+    local type="$1"
+    local value="$2"
+    echo "$type:$value" >> "$STATE_FILE"
+    log_msg "Tracked change: $type -> $value"
+}
+
+log_msg "--- Запуск autoflash.sh (v$SCRIPT_VERSION) ---"
+
+sudo_smart() {
+    if sudo -n true 2>/dev/null; then
+        return 0
+    fi
+    if echo "admin" | sudo -S -v 2>/dev/null; then
+        echo "[sudo] Пароль 'admin' принят автоматически."
+        return 0
+    fi
+    echo "[sudo] Пароль 'admin' не подошел. Введите пароль пользователя:"
+    sudo -v
+}
+
 # --- ШАГ 1: ПОИСК ФАЙЛОВ ---
 echo -e "\n[1/7] Поиск необходимых файлов..."
 
@@ -77,7 +107,18 @@ if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)';
 fi
 
 PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-sudo apt install -y "python${PY_VER}-venv" > /dev/null 2>&1 || true
+sudo_smart
+
+# Проверяем, установлен ли пакет, перед установкой
+VENV_PKG="python${PY_VER}-venv"
+if ! dpkg -s "$VENV_PKG" >/dev/null 2>&1; then
+    sudo apt install -y "$VENV_PKG" > /dev/null 2>&1 || true
+    track_change "PACKAGE" "$VENV_PKG"
+    log_msg "Installed package $VENV_PKG"
+else
+    # Уже установлен, просто убеждаемся (без трекинга)
+    sudo apt install -y "$VENV_PKG" > /dev/null 2>&1 || true
+fi
 
 if [ ! -d "env" ]; then
     python3 -m venv env
@@ -189,8 +230,10 @@ if ! python controlboard.py update -p "$FOUND_PORT" -f "$HEX_FILE" --ver_u "$FIR
     echo "[!] Попытка запуска служб..."
     sudo service edgeserver start
     sudo service vsmd start
+    log_msg "ERROR: Flashing failed."
     exit 1
 fi
+log_msg "Flashing successful: $HEX_FILE ($FIRM_VERSION)"
 
 # --- ЛОГИРОВАНИЕ УСПЕХА ---
 LOG_FILE="$HOME/smalledge_fw_version"

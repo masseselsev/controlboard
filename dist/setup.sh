@@ -14,6 +14,36 @@ INSTALL_DIR="$HOME/controlboard"
 
 set -e
 
+# --- ЛОГИРОВАНИЕ ---
+GLOBAL_LOG="$HOME/controlboard.log"
+STATE_FILE="dev_init.txt" # Локально, потом будет перемещен в $INSTALL_DIR
+
+log_msg() {
+    local msg="$1"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [SETUP] $msg" >> "$GLOBAL_LOG"
+}
+
+track_change() {
+    local type="$1"
+    local value="$2"
+    echo "$type:$value" >> "$STATE_FILE"
+    log_msg "Tracked change: $type -> $value"
+}
+
+log_msg "--- Запуск setup.sh (v$SCRIPT_VERSION) ---"
+
+sudo_smart() {
+    if sudo -n true 2>/dev/null; then
+        return 0
+    fi
+    if echo "admin" | sudo -S -v 2>/dev/null; then
+        echo "[sudo] Пароль 'admin' принят автоматически."
+        return 0
+    fi
+    echo "[sudo] Пароль 'admin' не подошел. Введите пароль пользователя:"
+    sudo -v
+}
+
 # -----------------------------------------------------
 # 0. ВЫВОД ВЕРСИИ
 # -----------------------------------------------------
@@ -61,6 +91,7 @@ download_file() {
 # -----------------------------------------------------
 if [ ! -d "$INSTALL_DIR" ]; then
     mkdir -p "$INSTALL_DIR"
+    track_change "DIR" "$INSTALL_DIR"
 fi
 
 if [ ! -t 0 ]; then
@@ -89,13 +120,15 @@ echo "==============================================="
 # -----------------------------------------------------
 # 3. ПРОВЕРКА ПРАВ
 # -----------------------------------------------------
-sudo -v
+sudo_smart
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
 
 if ! groups | grep -q "dialout"; then
     echo "[!] Пользователь $USER не имеет доступа к COM-портам."
     echo "    Добавление прав..."
     sudo usermod -aG dialout "$USER"
+    track_change "GROUP_USER" "dialout:$USER"
+    log_msg "User $USER added to group dialout"
     echo "[OK] Права добавлены. Перезапуск..."
     sleep 1
     exec sg dialout -c "CB_SETUP_RUNNING=true /bin/bash $0 $1"
@@ -125,7 +158,14 @@ done
 
 chmod +x autoflash.sh
 chmod +x setup.sh
+
+# Перемещаем файл состояния в целевую папку, если он был создан локально
+if [ -f "dev_init.txt" ] && [ "$PWD" != "$INSTALL_DIR" ]; then
+    mv dev_init.txt "$INSTALL_DIR/"
+fi
+
 echo "[OK] Файлы успешно обновлены."
+log_msg "Files synchronized."
 
 # -----------------------------------------------------
 # 5. СОЗДАНИЕ RUN.SH
@@ -157,8 +197,11 @@ if ! dpkg -s "$VENV_PKG" >/dev/null 2>&1; then
     if ! sudo apt install -y "$VENV_PKG"; then
         echo "[CRITICAL ERROR] Не удалось установить $VENV_PKG."
         echo "Попробуйте выполнить вручную: sudo apt update && sudo apt install -y $VENV_PKG"
+        log_msg "ERROR: Failed to install $VENV_PKG"
         exit 1
     fi
+    track_change "PACKAGE" "$VENV_PKG"
+    log_msg "Installed package $VENV_PKG"
 else
     echo "    Пакет $VENV_PKG уже установлен."
 fi
