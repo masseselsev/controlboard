@@ -35,6 +35,16 @@ I have implemented a mechanism to track system changes made by the installation 
 - The script now checks `~/smalledge_fw_version` on startup.
 - Displays the current firmware version or a default message if the file is missing.
 
+### 6. UI/UX Standardization
+- **Unified Design**: All scripts (`setup.sh`, `autoflash.sh`, `dev_cleanup.sh`) now share a consistent look and feel.
+    - **Headers**: Double-bordered, centered text.
+    - **Logs**: Standardized prefixes `[INFO]`, `[OK]`, `[WARN]`, `[ERROR]`.
+    - **Menus**: Consistent numbering (`1)`, `2)`, `0)` for exit).
+- **Versioning**: All scripts have been updated to the latest versions:
+    - `setup.sh`: v16
+    - `autoflash.sh`: v15
+    - `dev_cleanup.sh`: v3
+
 ## Critical Implementation Details
 
 > [!IMPORTANT]
