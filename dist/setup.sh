@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="20"
+SCRIPT_VERSION="21"
 # ==================================================
 
 # ================= КОНФИГУРАЦИЯ =================
@@ -193,7 +193,7 @@ echo "    Обновление списков пакетов (apt update)..."
 sudo apt update > /dev/null 2>&1
 
 echo "    Проверка пакета $VENV_PKG..."
-if ! dpkg -s "$VENV_PKG" >/dev/null 2>&1; then
+if ! dpkg -s "$VENV_PKG" 2>/dev/null | grep -q "Status: install ok installed"; then
     echo "    Установка $VENV_PKG (может занять время)..."
     if ! sudo apt install -y "$VENV_PKG"; then
         echo "[CRITICAL ERROR] Не удалось установить $VENV_PKG."
@@ -217,8 +217,14 @@ fi
 if [ ! -d "env" ]; then
     echo "    Создание виртуального окружения (env)..."
     if ! python3 -m venv env; then
-        echo "[CRITICAL ERROR] Ошибка при создании venv."
-        exit 1
+        echo "[WARN] Ошибка при создании venv. Возможна проблема с пакетом."
+        echo "    Попытка переустановки $VENV_PKG..."
+        sudo apt install -y --reinstall "$VENV_PKG"
+        
+        if ! python3 -m venv env; then
+            echo "[CRITICAL ERROR] Не удалось создать venv даже после переустановки."
+            exit 1
+        fi
     fi
 fi
 
