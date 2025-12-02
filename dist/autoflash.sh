@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="16"
+SCRIPT_VERSION="17"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -67,7 +67,7 @@ HEX_FILES=()
 # Ищем файлы и сортируем их по алфавиту
 while IFS= read -r -d '' file; do
     HEX_FILES+=("$(basename "$file")")
-done < <(find . -maxdepth 1 -name "*.hex" -print0 | sort -z)
+done < <(find . -maxdepth 1 -name "Update*.hex" -print0 | sort -z)
 
 FILE_COUNT=${#HEX_FILES[@]}
 HEX_FILE=""

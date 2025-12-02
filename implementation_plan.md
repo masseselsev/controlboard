@@ -17,22 +17,24 @@ Create a robust cleanup mechanism for the `controlboard` project to facilitate t
 
 ### UI/UX Standardization
 #### [MODIFY] [setup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/setup.sh)
-- [ ] Standardize Headers: Double line `====`, centered text.
-- [ ] Standardize Logs: Use `[INFO]`, `[OK]`, `[WARN]`, `[ERROR]` prefixes.
-- [ ] Standardize Menu:
+- [x] Standardize Headers: Double line `====`, centered text.
+- [x] Standardize Logs: Use `[INFO]`, `[OK]`, `[WARN]`, `[ERROR]` prefixes.
+- [x] Standardize Menu:
     - `1) ...`
     - `2) ...`
     - `3) Перезагрузка`
     - `0) Выход`
     - `00) Очистка` (Red)
+- [ ] Display firmware version in menu header: `МЕНЮ УПРАВЛЕНИЯ (VSM2 v.X.Y.Z)`.
 
 #### [MODIFY] [autoflash.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/autoflash.sh)
-- [ ] Standardize Headers.
-- [ ] Standardize File Menu: Change `[1]` to `1)`.
-- [ ] Standardize Exit Option: `0) Отмена/Выход`.
+- [x] Standardize Headers.
+- [x] Standardize File Menu: Change `[1]` to `1)`.
+- [x] Standardize Exit Option: `0) Отмена/Выход`.
+- [ ] Filter files: Only show `Update*.hex`.
 
 #### [MODIFY] [dev_cleanup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/dev_cleanup.sh)
-- [ ] Standardize Headers and Logs.
+- [x] Standardize Headers and Logs.
 
 ### Logging & State Tracking
 #### [MODIFY] [setup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/setup.sh)
