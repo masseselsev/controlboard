@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="14"
+SCRIPT_VERSION="15"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -73,45 +73,6 @@ FILE_COUNT=${#HEX_FILES[@]}
 HEX_FILE=""
 
 if [ "$FILE_COUNT" -eq 0 ]; then
-    echo "ОШИБКА: .hex файл прошивки не найден."
-    exit 1
-elif [ "$FILE_COUNT" -eq 1 ]; then
-    HEX_FILE=${HEX_FILES[0]}
-    echo "  [OK] Найден один файл прошивки: $HEX_FILE"
-else
-    echo "  - Найдено несколько файлов прошивки. Выберите нужный:"
-    for i in "${!HEX_FILES[@]}"; do
-        echo "    [$((i+1))] ${HEX_FILES[$i]}"
-    done
-    
-    echo ""
-    echo "    [0] Отмена, выход в предыдущее меню"
-    
-    echo ""
-    read -p "Введите номер файла (0-$FILE_COUNT): " CHOICE
-    
-    if ! [[ "$CHOICE" =~ ^[0-9]+$ ]]; then
-        echo "ОШИБКА: Неверный ввод."
-        exit 1
-    fi
-
-    if [ "$CHOICE" -eq 0 ]; then
-        echo "Отмена операции."
-        exit 0
-    fi
-
-    if [ "$CHOICE" -lt 1 ] || [ "$CHOICE" -gt "$FILE_COUNT" ]; then
-        echo "ОШИБКА: Неверный номер."
-        exit 1
-    fi
-    HEX_FILE=${HEX_FILES[$((CHOICE-1))]}
-    echo "  [OK] Выбрана прошивка: $HEX_FILE"
-fi
-
-# --- ШАГ 2: НАСТРОЙКА ОКРУЖЕНИЯ ---
-echo -e "\n[2/7] Настройка Python окружения..."
-
-if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
     echo "ОШИБКА: Требуется Python версии 3.10 или выше."
     exit 1
 fi

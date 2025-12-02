@@ -7,7 +7,7 @@
 # ==================================================
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="2"
+SCRIPT_VERSION="3"
 # ==================================================
 
 # Конфигурация
@@ -35,7 +35,7 @@ sudo_smart() {
 
 # --- ПРОВЕРКИ ---
 if [ ! -d "$INSTALL_DIR" ]; then
-    echo "Директория $INSTALL_DIR не найдена. Нечего очищать."
+    echo "[WARN] Директория $INSTALL_DIR не найдена. Нечего очищать."
     exit 0
 fi
 
@@ -89,4 +89,4 @@ rm -rf "$INSTALL_DIR"
 
 log_msg "Cleanup complete. System should be clean."
 log_msg "Log file remains at: $GLOBAL_LOG"
-echo "Done."
+echo "[INFO] Done."

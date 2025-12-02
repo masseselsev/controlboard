@@ -15,6 +15,25 @@ Create a robust cleanup mechanism for the `controlboard` project to facilitate t
 
 ## Proposed Changes
 
+### UI/UX Standardization
+#### [MODIFY] [setup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/setup.sh)
+- [ ] Standardize Headers: Double line `====`, centered text.
+- [ ] Standardize Logs: Use `[INFO]`, `[OK]`, `[WARN]`, `[ERROR]` prefixes.
+- [ ] Standardize Menu:
+    - `1) ...`
+    - `2) ...`
+    - `3) Перезагрузка`
+    - `0) Выход`
+    - `00) Очистка` (Red)
+
+#### [MODIFY] [autoflash.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/autoflash.sh)
+- [ ] Standardize Headers.
+- [ ] Standardize File Menu: Change `[1]` to `1)`.
+- [ ] Standardize Exit Option: `0) Отмена/Выход`.
+
+#### [MODIFY] [dev_cleanup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/dev_cleanup.sh)
+- [ ] Standardize Headers and Logs.
+
 ### Logging & State Tracking
 #### [MODIFY] [setup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/setup.sh)
 - [x] Implement `log_msg` function (targets `~/controlboard.log`).
@@ -31,7 +50,7 @@ Create a robust cleanup mechanism for the `controlboard` project to facilitate t
 - [x] Track package installations.
 - [x] Log success/failure of flashing process.
 - [x] Increment `SCRIPT_VERSION`.
-- [ ] Display current firmware version from `~/smalledge_fw_version`.
+- [x] Display current firmware version from `~/smalledge_fw_version`.
 
 ### Cleanup Mechanism
 #### [NEW] [dev_cleanup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/dev_cleanup.sh)
