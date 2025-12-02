@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="17"
+SCRIPT_VERSION="18"
 # ==================================================
 
 # ================= КОНФИГУРАЦИЯ =================
@@ -106,7 +106,7 @@ if [ ! -t 0 ]; then
         exit 1
     fi
     chmod +x "$INSTALL_DIR/setup.sh"
-    exec "$INSTALL_DIR/setup.sh" "$1" < /dev/tty
+    exec "$INSTALL_DIR/setup.sh" "$1" < /dev/tty > /dev/tty
 fi
 
 # =====================================================
