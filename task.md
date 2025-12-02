@@ -12,5 +12,6 @@
 - [x] Standardize UI/UX (menus, headers, logs) across all scripts <!-- id: 10 -->
 - [x] Filter firmware files by "Update*" prefix in `autoflash.sh` <!-- id: 11 -->
 - [x] Display firmware version in `setup.sh` menu header <!-- id: 12 -->
+- [x] List available firmware files in `setup.sh` menu <!-- id: 13 -->
 - [x] Modify `setup.sh` and `autoflash.sh` to track changes <!-- id: 6 -->
 - [x] Create `README.md` with documentation <!-- id: 7 -->

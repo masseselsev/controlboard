@@ -25,13 +25,15 @@ Create a robust cleanup mechanism for the `controlboard` project to facilitate t
     - `3) Перезагрузка`
     - `0) Выход`
     - `00) Очистка` (Red)
-- [ ] Display firmware version in menu header: `МЕНЮ УПРАВЛЕНИЯ (VSM2 v.X.Y.Z)`.
+- [x] Display firmware version in menu header: `МЕНЮ УПРАВЛЕНИЯ (VSM2 v.X.Y.Z)`.
+- [ ] List available `Update*.hex` files under option 2.
+- [ ] Remove `(app.py)` and `(autoflash.sh)` from menu text.
 
 #### [MODIFY] [autoflash.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/autoflash.sh)
 - [x] Standardize Headers.
 - [x] Standardize File Menu: Change `[1]` to `1)`.
 - [x] Standardize Exit Option: `0) Отмена/Выход`.
-- [ ] Filter files: Only show `Update*.hex`.
+- [x] Filter files: Only show `Update*.hex`.
 
 #### [MODIFY] [dev_cleanup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/dev_cleanup.sh)
 - [x] Standardize Headers and Logs.
