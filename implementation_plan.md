@@ -7,6 +7,12 @@ Create a robust cleanup mechanism for the `controlboard` project to facilitate t
 > [!IMPORTANT]
 > **Installation Command**: The `setup.sh` script requires the script URL to be passed as an argument to `bash` (e.g., `bash -s "$url"`) for dynamic repository configuration. This is documented in `README.md`.
 
+> [!NOTE]
+> **Versioning**: All shell scripts must maintain a `SCRIPT_VERSION` variable that is incremented on every change.
+
+> [!NOTE]
+> **Documentation Sync**: `README.md` must be updated immediately to reflect any functional changes.
+
 ## Proposed Changes
 
 ### Logging & State Tracking
@@ -17,11 +23,14 @@ Create a robust cleanup mechanism for the `controlboard` project to facilitate t
 - [x] Track user group additions (`dialout`).
 - [x] Track directory creation.
 - [x] Move `dev_init.txt` to `$INSTALL_DIR` at the end of execution.
+- [x] Increment `SCRIPT_VERSION`.
+- [x] Add "00" cleanup option to menu (Red color).
 
 #### [MODIFY] [autoflash.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/autoflash.sh)
 - [x] Implement `log_msg` and `track_change` (consistent with `setup.sh`).
 - [x] Track package installations.
 - [x] Log success/failure of flashing process.
+- [x] Increment `SCRIPT_VERSION`.
 
 ### Cleanup Mechanism
 #### [NEW] [dev_cleanup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/dev_cleanup.sh)
@@ -31,6 +40,7 @@ Create a robust cleanup mechanism for the `controlboard` project to facilitate t
 - [x] Remove user from groups.
 - [x] Delete `$INSTALL_DIR`.
 - [x] Preserve `~/controlboard.log`.
+- [x] Initialize `SCRIPT_VERSION`.
 
 ### Documentation
 #### [NEW] [README.md](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/README.md)

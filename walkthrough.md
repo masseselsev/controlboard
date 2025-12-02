@@ -27,6 +27,10 @@ I have implemented a mechanism to track system changes made by the installation 
     - Firmware updating.
     - Developer mode (cleanup).
 
+### 4. Interactive Menu (`setup.sh`)
+- Added a hidden/developer option **00) Полная очистка** (displayed in red) to the main menu.
+- This option executes `dev_cleanup.sh` directly from the menu interface.
+
 ## Critical Implementation Details
 
 > [!IMPORTANT]
@@ -37,6 +41,14 @@ I have implemented a mechanism to track system changes made by the installation 
 > `url=".../setup.sh"; wget -O - "$url" | bash -s "$url"`
 >
 > If `bash -s "$url"` is omitted, the script will default to hardcoded values, which may break installations from forks or non-main branches.
+
+> [!NOTE]
+> **Versioning Rule**
+> All scripts (`setup.sh`, `autoflash.sh`, `dev_cleanup.sh`) MUST have a `SCRIPT_VERSION` variable. This version should be incremented with every modification to the file. If creating a new script, implement this versioning pattern immediately.
+
+> [!NOTE]
+> **Documentation Sync Rule**
+> Any functional change to the scripts (e.g., new menu options, new arguments) MUST be immediately reflected in `README.md`.
 
 ## Verification
 - **Manual Review**: Checked `dev_cleanup.sh` logic to ensure it handles the state file correctly and uses `sudo_smart`.

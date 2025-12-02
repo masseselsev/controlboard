@@ -6,6 +6,10 @@
 # внесенных setup.sh и autoflash.sh.
 # ==================================================
 
+# ================= ВЕРСИЯ СКРИПТА =================
+SCRIPT_VERSION="2"
+# ==================================================
+
 # Конфигурация
 INSTALL_DIR="$HOME/controlboard"
 STATE_FILE="$INSTALL_DIR/dev_init.txt"
@@ -35,7 +39,8 @@ if [ ! -d "$INSTALL_DIR" ]; then
     exit 0
 fi
 
-log_msg "--- Starting cleanup process ---"
+echo "--- Cleanup Script (v$SCRIPT_VERSION) ---"
+log_msg "--- Starting cleanup process (v$SCRIPT_VERSION) ---"
 
 # 1. Чтение файла состояния
 if [ ! -f "$STATE_FILE" ]; then
