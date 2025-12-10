@@ -41,8 +41,8 @@ I have implemented a mechanism to track system changes made by the installation 
     - **Logs**: Standardized prefixes `[INFO]`, `[OK]`, `[WARN]`, `[ERROR]`.
     - **Menus**: Consistent numbering (`1)`, `2)`, `0)` for exit).
 - **Versioning**: All scripts have been updated to the latest versions:
-    - `setup.sh`: v16
-    - `autoflash.sh`: v15
+    - `setup.sh`: v21
+    - `autoflash.sh`: v17
     - `dev_cleanup.sh`: v3
 
 ## Critical Implementation Details
@@ -58,12 +58,19 @@ I have implemented a mechanism to track system changes made by the installation 
 
 > [!NOTE]
 > **Versioning Rule**
-> All scripts (`setup.sh`, `autoflash.sh`, `dev_cleanup.sh`) MUST have a `SCRIPT_VERSION` variable. This version should be incremented with every modification to the file. If creating a new script, implement this versioning pattern immediately.
+> All shell scripts (`setup.sh`, `autoflash.sh`, `dev_cleanup.sh`) MUST have a `SCRIPT_VERSION` variable at the top of the file. This version MUST be incremented with **every single modification** to the file, no matter how small.
 
 > [!NOTE]
 > **Documentation Sync Rule**
 > Any functional change to the scripts (e.g., new menu options, new arguments) MUST be immediately reflected in `README.md`.
 
+> [!NOTE]
+> **UI/UX Standard**
+> - **Headers**: Double-bordered `====`, centered text.
+> - **Logs**: `[INFO]`, `[OK]`, `[WARN]`, `[ERROR]`.
+> - **Menus**: `1)`, `2)`, `0)` (Exit), `00)` (Cleanup - Red).
+
 ## Verification
 - **Manual Review**: Checked `dev_cleanup.sh` logic to ensure it handles the state file correctly and uses `sudo_smart`.
 - **Safety**: Confirmed that `dev_cleanup.sh` checks for the existence of the directory before attempting removal.
+- **Venv Detection**: Verified `setup.sh` correctly detects `python3-venv` even in "config-files" state and has self-healing logic.
