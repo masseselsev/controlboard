@@ -106,7 +106,28 @@ else
     fi
     HEX_FILE=${HEX_FILES[$((CHOICE-1))]}
     echo "  [OK] Выбрана прошивка: $HEX_FILE"
+    HEX_FILE=${HEX_FILES[$((CHOICE-1))]}
+    echo "  [OK] Выбрана прошивка: $HEX_FILE"
 fi
+
+# --- ПРОВЕРКА ВЕРСИИ ---
+FIRM_VERSION="00.00.00"
+if [[ $HEX_FILE =~ V([0-9]{2}\.[0-9]{2}\.[0-9]{2}) ]]; then
+    FIRM_VERSION=${BASH_REMATCH[1]}
+else
+    echo "[WARN] Не удалось определить версию из имени файла. Принудительная прошивка разрешена."
+fi
+
+if [ -n "$CURRENT_FW" ] && [ "$FIRM_VERSION" == "$CURRENT_FW" ]; then
+    echo "==========================================================="
+    echo " [INFO] Версия прошивки $FIRM_VERSION уже установлена."
+    echo "        Процедура прошивки отменена."
+    echo "==========================================================="
+    log_msg "Skipped flashing: versions match ($FIRM_VERSION)"
+    exit 0
+fi
+
+echo "  -> Будет установлена версия: $FIRM_VERSION"
 
 # --- ШАГ 2: НАСТРОЙКА ОКРУЖЕНИЯ ---
 echo -e "\n[2/7] Настройка Python окружения..."
@@ -225,11 +246,7 @@ echo -e "\n[6/7] ЗАПУСК ПРОШИВКИ! Не отключайте пит
 echo "  - Порт: $FOUND_PORT"
 echo "  - Файл: $HEX_FILE"
 
-FIRM_VERSION="00.00.00"
-if [[ $HEX_FILE =~ V([0-9]{2}\.[0-9]{2}\.[0-9]{2}) ]]; then
-    FIRM_VERSION=${BASH_REMATCH[1]}
-    echo "  - Версия из файла: $FIRM_VERSION"
-fi
+echo "  - Версия из файла: $FIRM_VERSION"
 
 CURRENT_DATE=$(date +%d.%m.%y)
 echo "  - Дата прошивки: $CURRENT_DATE"

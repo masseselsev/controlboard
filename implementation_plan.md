@@ -57,6 +57,15 @@ Create a robust cleanup mechanism for the `controlboard` project to facilitate t
 - [x] Display current firmware version from `~/smalledge_fw_version`.
 
 ### Cleanup Mechanism
+#### [MODIFY] [autoflash.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/autoflash.sh)
+- [ ] Parse version from selected file filename immediately after selection.
+- [ ] Compare with current installed version (`~/smalledge_fw_version`).
+- [ ] If versions match:
+    - Log "Versions match".
+    - Display message to user.
+    - Exit gracefully (return to menu).
+- [ ] Move version extraction logic from Step 6 to Step 1.
+
 #### [NEW] [dev_cleanup.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/dev_cleanup.sh)
 - [x] Read `dev_init.txt`.
 - [x] Revert changes in reverse order (LIFO).
