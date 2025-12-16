@@ -1,76 +1,44 @@
-# Dev Cleanup & Documentation
+# Walkthrough - Telegram Integration
 
-I have implemented a mechanism to track system changes made by the installation scripts and a cleanup script to revert them. I also added comprehensive documentation.
+I have added Telegram notification support to the firmware update process.
 
 ## Changes
 
-### 1. State Tracking (`setup.sh`, `autoflash.sh`)
-- **Global Log**: All scripts now write to `~/controlboard.log` with timestamps.
-- **State File**: Revertible actions (installing packages, adding user to groups) are recorded in `controlboard/dev_init.txt` in the format `TYPE:VALUE`.
-    - `PACKAGE:name`
-    - `GROUP_USER:group:user`
-    - `DIR:path`
+### 1. New Script: `dist/telegram_sender.py`
+A Python script that sends messages using the Telegram Bot API.
+- Reads credentials (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) from environment variables.
+- Fails gracefully if credentials are missing (prints an INFO message and exits).
+- Uses `requests` to send the message.
 
-### 2. Cleanup Script (`dist/dev_cleanup.sh`)
-- Reads `dev_init.txt`.
-- Reverts actions in reverse order (LIFO):
-    - Removes packages (`apt remove`).
-    - Removes user from groups (`deluser`).
-- Deletes the project directory (`~/controlboard`).
-- **Preserves**: `~/controlboard.log` and `~/smalledge_fw_version`.
+### 2. Config Template: `dist/telegram_config.env`
+A template file for storing your sensitive credentials.
+```env
+# Telegram Configuration
+# TELEGRAM_BOT_TOKEN=your_token
+# TELEGRAM_CHAT_ID=your_chat_id
+```
 
-### 3. Documentation (`README.md`)
-- Created a root `README.md` describing:
-    - Project overview.
-    - Installation via `setup.sh`.
-    - Usage of `app.py` and `controlboard.py`.
-    - Firmware updating.
-    - Developer mode (cleanup).
+### 3. Modified `dist/autoflash.sh` (v19)
+- **Dependency**: Added `requests` to the pip install command.
+- **Workflow**:
+    1. Checks for `telegram_config.env`.
+    2. Loads environment variables if the file exists.
+    3. Constructs a message with the Hostname, Firmware Version, and Date.
+    4. Calls `telegram_sender.py`.
+    5. Version incremented to 19.
 
-### 4. Interactive Menu (`setup.sh`)
-- Added a hidden/developer option **00) Полная очистка** (displayed in red) to the main menu.
-- This option executes `dev_cleanup.sh` directly from the menu interface.
+### 4. Versioning
+- `autoflash.sh`: Updated to v19.
+- `telegram_sender.py`: Initialized at v1.
 
-### 5. Firmware Version Display (`autoflash.sh`)
-- The script now checks `~/smalledge_fw_version` on startup.
-- Displays the current firmware version or a default message if the file is missing.
+## Verification Results
+### Automated Verification
+*Skipped as per user instructions.*
 
-### 6. UI/UX Standardization
-- **Unified Design**: All scripts (`setup.sh`, `autoflash.sh`, `dev_cleanup.sh`) now share a consistent look and feel.
-    - **Headers**: Double-bordered, centered text.
-    - **Logs**: Standardized prefixes `[INFO]`, `[OK]`, `[WARN]`, `[ERROR]`.
-    - **Menus**: Consistent numbering (`1)`, `2)`, `0)` for exit).
-- **Versioning**: All scripts have been updated to the latest versions:
-    - `setup.sh`: v21
-    - `autoflash.sh`: v17
-    - `dev_cleanup.sh`: v3
+### Manual Verification Steps
+To enable notifications:
+1. Open `dist/telegram_config.env`.
+2. Uncomment and fill in `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+3. Run `dist/autoflash.sh` as usual.
 
-## Critical Implementation Details
-
-> [!IMPORTANT]
-> **setup.sh Argument Passing**
-> The `setup.sh` script relies on receiving its own URL as the first argument (`$1`) to correctly parse the GitHub user, repository, and branch.
->
-> **Correct Installation Command:**
-> `url=".../setup.sh"; wget -O - "$url" | bash -s "$url"`
->
-> If `bash -s "$url"` is omitted, the script will default to hardcoded values, which may break installations from forks or non-main branches.
-
-> [!NOTE]
-> **Versioning Rule**
-> All shell scripts (`setup.sh`, `autoflash.sh`, `dev_cleanup.sh`) MUST have a `SCRIPT_VERSION` variable at the top of the file. This version MUST be incremented with **every single modification** to the file, no matter how small.
-
-> [!NOTE]
-> **Documentation Sync Rule**
-> Any functional change to the scripts (e.g., new menu options, new arguments) MUST be immediately reflected in `README.md`.
-
-> [!NOTE]
-> **UI/UX Standard**
-> - **Headers**: Double-bordered `====`, centered text.
-> - **Logs**: `[INFO]`, `[OK]`, `[WARN]`, `[ERROR]`.
-> - **Menus**: `1)`, `2)`, `0)` (Exit), `00)` (Cleanup - Red).
-
-## Verification
-- **Manual Review**: Checked `dev_cleanup.sh` logic to ensure it handles the state file correctly and uses `sudo_smart`.
-- **Safety**: Confirmed that `dev_cleanup.sh` checks for the existence of the directory before attempting removal.
-- **Venv Detection**: Verified `setup.sh` correctly detects `python3-venv` even in "config-files" state and has self-healing logic.
+If the config file is missing or empty, the script will proceed without errors, printing a log message about skipping the notification.

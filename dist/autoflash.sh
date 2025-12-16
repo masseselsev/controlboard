@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="18"
+SCRIPT_VERSION="19"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -157,7 +157,7 @@ fi
 
 source env/bin/activate
 echo "  - Установка зависимостей (pyserial)..."
-pip install pyserial > /dev/null
+pip install pyserial requests > /dev/null
 
 # --- ШАГ 3: ОСТАНОВКА СЛУЖБ ---
 echo -e "\n[3/7] Временная остановка служб для доступа к порту..."
@@ -267,6 +267,21 @@ LOG_FILE="$HOME/smalledge_fw_version"
 TIMESTAMP=$(date "+%d.%m.%Y, %H:%M")
 echo "$TIMESTAMP $FIRM_VERSION" >> "$LOG_FILE"
 echo -e "\n  [LOG] Запись добавлена в журнал: $LOG_FILE"
+
+# --- TELEGRAM NOTIFICATION ---
+if [ -f "telegram_config.env" ]; then
+    # Эспортируем переменные из файла, игнорируя комментарии
+    export $(grep -v '^#' telegram_config.env | xargs) 2>/dev/null || true
+fi
+
+MSG="✅ Прошивка завершена успешно!
+Устройство: $(hostname)
+Версия: $FIRM_VERSION
+Дата: $TIMESTAMP"
+
+echo "  -> Отправка уведомления в Telegram..."
+python telegram_sender.py "$MSG" || echo "[WARN] Не удалось запустить скрипт уведомления."
+
 
 # --- ШАГ 7: ЗАВЕРШЕНИЕ ---
 echo -e "\n--- ПРОШИВКА УСПЕШНО ЗАВЕРШЕНА ---"
