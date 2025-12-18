@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="24"
+SCRIPT_VERSION="25"
 # ==================================================
 
 # ================= КОНФИГУРАЦИЯ =================
@@ -243,59 +243,20 @@ while true; do
         local retries=3
         local wait_time=5
         for ((i=1; i<=retries; i++)); do
-            # Ищем ttyUSB* порты
-            PORTS=$(ls /dev/ttyUSB* 2>/dev/null)
+            # Ищем ttyUSB* порты (|| true чтобы не вылетал скрипт из-за set -e при отсутствии файлов)
+            PORTS=$(ls /dev/ttyUSB* 2>/dev/null || true)
             if [ -z "$PORTS" ]; then
                 if [ $i -lt $retries ]; then sleep $wait_time; continue; fi
-                echo "Недоступен (пойск порта)"
-                return 1
+                # Возвращаем 0 и пишем статус, чтобы не сработал set -e
+                echo "FAIL"
+                return 0
             fi
 
             for port in $PORTS; do
-                # Пытаемся опросить (мягкая проверка, ожидаем "Version is right!!!")
-                # Используем timeout чтобы не висеть вечно если порт занят
-                OUTPUT=$(timeout 3s python controlboard.py read version_request -p "$port" 2>&1)
+                # Используем timeout
+                OUTPUT=$(timeout 3s python controlboard.py read version_request -p "$port" 2>&1 || true)
                 
-                # Парсим вывод controlboard.py. Он выводит байты.
-                # Но мы ищем строку "Version is right!!!" которую добавляет скрипт при успехе
                 if echo "$OUTPUT" | grep -q "Version is right!!!"; then
-                     # Теперь нужно вытащить саму версию.
-                     # controlboard.py read firmware_version (REG_VERSION 0x0026)
-                     # Или распарсить ответ version_request (но он дает просто ID)
-                     # В ТЗ просили "версию прошивки". version_request дает ID типа 04 02 20 00.
-                     # Лучше использовать read firmware_version если она есть, или полагаться на файл?
-                     # Пользователь просил: "при проверке текущей версии прошивки обращаться с запросом к контроллеру"
-                     # В commands.py есть "firmware_version" (REG_VERSION). Попробуем его.
-                     
-                     VER_OUT=$(timeout 3s python controlboard.py read firmware_version -p "$port" 2>&1)
-                     # Ожидаем что-то типа "Result: 123" или разбор байт.
-                     # В commands.py "firmware_version" просто читает регистр.
-                     # Если функция чтения не распарсит, то мы не увидим версию.
-                     # В controlboard.py func_read("firmware_version") нет явного case.
-                     # Значит попадет в default? Нет, там match case.
-                     # Если case "firmware_version" нет, то ничего не выведет?
-                     # В controlboard.py который я читал, case "firmware_version" НЕТ!
-                     # Есть "version_request" (кейс 576), который проверяет ID.
-                     # Значит мы можем только подтвердить НАЛИЧИЕ контроллера, но не версию прошивки (цифры).
-                     # Вернемся к version_request. Он возвращает "Version is right!!!" если ответ совпадает.
-                     # Значит мы знаем что контроллер ТУТ.
-                     # А версию цифрами (v01.01.00) контроллер по этому запросу НЕ ОТДАЕТ (это просто ID).
-                     # Версию можно узнать только из файла smalledge_fw_version (как раньше).
-                     # ЛИБО, если пользователь уверен что контроллер отдает версию, то нужно искать другую команду.
-                     # В commands.py есть REG_VERSION = 0x0026, и команда "firmware_version".
-                     # Но в controlboard.py в func_read НЕТ case "firmware_version".
-                     # Значит python controlboard.py read firmware_version ВЫДАСТ ОШИБКУ или ничего.
-                     
-                     # РЕШЕНИЕ:
-                     # 1. Проверяем наличие контроллера через version_request.
-                     # 2. Если ОК -> Пишем "Подключен" (или читаем версию из файла если хотим цифры).
-                     # Но пользователь просил "версию".
-                     # Если скрипт не умеет читать версию, я не могу её показать.
-                     # Я покажу "Подключен (v... из файла)" или просто "Подключен".
-                     # Однако, если цель - "В случае недоступности... сообщить", то главное - статус.
-                     # Давайте покажем: "VSM2 (Подключен)" + "v... (из файла)".
-                     # Или просто оставим версию из файла, но добавим статус "(Live: OK)".
-                     
                      echo "OK"
                      return 0
                 fi
@@ -303,8 +264,8 @@ while true; do
             
             if [ $i -lt $retries ]; then sleep $wait_time; fi
         done
-        echo "Недоступен"
-        return 1
+        echo "FAIL"
+        return 0
     }
     
     FW_VERSION_FILE="$HOME/smalledge_fw_version"
