@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="25"
+SCRIPT_VERSION="26"
 # ==================================================
 
 # ================= КОНФИГУРАЦИЯ =================
@@ -239,31 +239,48 @@ echo "[OK] Система готова к работе."
 while true; do
     # Получение версии прошивки
     # Получение версии прошивки (LIVE CHECK)
+    # Получение версии прошивки (LIVE CHECK)
     check_fw_version() {
         local retries=3
         local wait_time=5
+        
+        # Выводим сообщение в stderr чтобы оно отображалось в консоли, но не попадало в переменную LIVE_STATUS
+        echo -ne "Поиск контроллера... " >&2
+
         for ((i=1; i<=retries; i++)); do
             # Ищем ttyUSB* порты (|| true чтобы не вылетал скрипт из-за set -e при отсутствии файлов)
             PORTS=$(ls /dev/ttyUSB* 2>/dev/null || true)
+            
             if [ -z "$PORTS" ]; then
-                if [ $i -lt $retries ]; then sleep $wait_time; continue; fi
+                if [ $i -lt $retries ]; then 
+                    echo -ne "\rПоиск контроллера... Попытка $i/$retries (не найден, ждем ${wait_time}с)... " >&2
+                    sleep $wait_time
+                    continue
+                fi
                 # Возвращаем 0 и пишем статус, чтобы не сработал set -e
+                echo -e "\rПоиск контроллера... Не найден.              " >&2
                 echo "FAIL"
                 return 0
             fi
 
             for port in $PORTS; do
+                echo -ne "\rПоиск контроллера... Попытка $i/$retries (опрос $port)... " >&2
                 # Используем timeout
                 OUTPUT=$(timeout 3s python controlboard.py read version_request -p "$port" 2>&1 || true)
                 
                 if echo "$OUTPUT" | grep -q "Version is right!!!"; then
+                     echo -e "\rПоиск контроллера... [OK]                    " >&2
                      echo "OK"
                      return 0
                 fi
             done
             
-            if [ $i -lt $retries ]; then sleep $wait_time; fi
+            if [ $i -lt $retries ]; then 
+                echo -ne "\rПоиск контроллера... Попытка $i/$retries (нет ответа, ждем ${wait_time}с)... " >&2
+                sleep $wait_time
+            fi
         done
+        echo -e "\rПоиск контроллера... Нет ответа.              " >&2
         echo "FAIL"
         return 0
     }
