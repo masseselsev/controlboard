@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="19"
+SCRIPT_VERSION="21"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -124,7 +124,21 @@ if [ -n "$CURRENT_FW" ] && [ "$FIRM_VERSION" == "$CURRENT_FW" ]; then
     echo "        Процедура прошивки отменена."
     echo "==========================================================="
     log_msg "Skipped flashing: versions match ($FIRM_VERSION)"
-    exit 0
+    
+    # --- TELEGRAM NOTIFICATION (SKIPPED) ---
+    if [ -f "telegram_config.env" ]; then
+        export $(grep -v '^#' telegram_config.env | xargs) 2>/dev/null || true
+    fi
+    TS=$(date "+%d.%m.%Y, %H:%M")
+    MSG="ℹ️ Прошивка уже актуальна!
+Устройство: $(hostname)
+Версия: $FIRM_VERSION (установлена)
+Дата проверки: $TS
+Обновление не требуется."
+    echo "  -> Отправка уведомления (пропуск)..."
+    python telegram_sender.py "$MSG" || true
+    
+    exit 2
 fi
 
 echo "  -> Будет установлена версия: $FIRM_VERSION"
