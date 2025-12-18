@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="26"
+SCRIPT_VERSION="27"
 # ==================================================
 
 # ================= КОНФИГУРАЦИЯ =================
@@ -293,7 +293,7 @@ while true; do
     
     LIVE_STATUS=$(check_fw_version)
     if [ "$LIVE_STATUS" == "OK" ]; then
-         STATUS_STR="[ONLINE]"
+         STATUS_STR="[\033[32mONLINE\033[0m]"
     else
          STATUS_STR="[\033[31mOFFLINE\033[0m]"
     fi
