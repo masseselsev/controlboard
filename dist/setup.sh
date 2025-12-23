@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="27"
+SCRIPT_VERSION="28"
 # ==================================================
 
 # ================= КОНФИГУРАЦИЯ =================
@@ -236,15 +236,13 @@ echo "[OK] Система готова к работе."
 # -----------------------------------------------------
 # 7. ИНТЕРАКТИВНОЕ МЕНЮ
 # -----------------------------------------------------
-while true; do
-    # Получение версии прошивки
-    # Получение версии прошивки (LIVE CHECK)
-    # Получение версии прошивки (LIVE CHECK)
+
+# Функция проверки версии прошивки перед открытием меню
     check_fw_version() {
         local retries=3
         local wait_time=5
         
-        # Выводим сообщение в stderr чтобы оно отображалось в консоли, но не попадало в переменную LIVE_STATUS
+    # Выводим сообщение в stderr чтобы оно отображалось в консоли, но не попадало в переменную возврата
         echo -ne "Поиск контроллера... " >&2
 
         for ((i=1; i<=retries; i++)); do
@@ -265,6 +263,7 @@ while true; do
 
             for port in $PORTS; do
                 echo -ne "\rПоиск контроллера... Попытка $i/$retries (опрос $port)... " >&2
+            
                 # Используем timeout и команду firmware_version
                 OUTPUT=$(timeout 3s python controlboard.py read firmware_version -p "$port" 2>&1 || true)
                 
@@ -291,6 +290,7 @@ while true; do
         return 0
     }
     
+while true; do
     FW_VERSION_FILE="$HOME/smalledge_fw_version"
     CURRENT_FW="Неизвестно"
     if [ -f "$FW_VERSION_FILE" ]; then
@@ -312,7 +312,7 @@ while true; do
 
     echo ""
     echo "=========================================="
-    echo -e "   МЕНЮ УПРАВЛЕНИЯ (VSM2 v.$CURRENT_FW) $STATUS_STR"
+    echo -e "   МЕНЮ УПРАВЛЕНИЯ (VSM2 $CURRENT_FW) $STATUS_STR"
     echo "=========================================="
     echo "1) Консоль управления"
     echo "2) Прошивка контроллера"
