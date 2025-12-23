@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="22"
+SCRIPT_VERSION="23"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -20,7 +20,7 @@ STATE_FILE="dev_init.txt"
 
 log_msg() {
     local msg="$1"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [FLASH] $msg" >> "$GLOBAL_LOG"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - Was installed: V$TARGET_VER" >> "$FW_VERSION_FILE"_LOG"
 }
 
 track_change() {

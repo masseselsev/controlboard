@@ -1,20 +1,28 @@
-# Walkthrough - Refactoring setup.sh
+# Walkthrough - Refined Version Parsing
 
-I have refactored the `setup.sh` script to improve performance and maintainability.
+I have updated `setup.sh` and `autoflash.sh` to ensure consistent version formatting (`V01.01.00`).
 
 ## Changes
 
-### `dist/setup.sh`
+### `dist/setup.sh` (v29)
 
-- **Optimization**: Moved `check_fw_version` function definition outside the `while true` loop. This prevents the function from being redefined on every iteration of the menu.
-- **Cleanup**: Removed redundant comments (multiple "Получение версии прошивки").
-- **Version Bump**: Updated `SCRIPT_VERSION` to "28".
-- **Shebang**: Verified `#!/bin/bash` is present at the top.
+- **Parsing Logic**: Updated to handle `>>> Update Version: 1.1.0`.
+  - Extracts `1.1.0`.
+  - Formats as `V01.01.00` (pad with zeros, prepend V).
+- **Fallback Logic**: When reading from `smalledge_fw_version`, automatically adds `V` prefix if missing.
+
+### `dist/autoflash.sh` (v23)
+
+- **Logging**: Now writes the version with `V` prefix to `smalledge_fw_version` (e.g., `Was installed: V01.01.00`).
 
 ## Verification
 
 ### Manual Verification
-
-- The user should verify that the script runs correctly: `./setup.sh`.
-- Check that the version "28" is displayed on startup.
-- Check that the menu still functions correctly with the dynamic version check.
+>
+> [!IMPORTANT]
+> Please verify on the device:
+>
+> 1. Run `./setup.sh`.
+> 2. Expect `[OK] (V01.01.00)`.
+> 3. Menu header: `VSM2 V01.01.00`.
+> 4. (Optional) Run a flash cycle or check `smalledge_fw_version` after flashing to see the new format.
