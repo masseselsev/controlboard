@@ -1,5 +1,5 @@
-# Deploy Mass Flasher to RPi5
+# Fix Monkey Patch Warning
 
-- [x] Improve `run_docker.sh` to handle restarts <!-- id: 9 -->
-- [x] Push changes to `dev` <!-- id: 10 -->
-- [x] Provide deployment instructions for RPi5 <!-- id: 11 -->
+- [x] Move `monkey.patch_all()` to top of `app.py` <!-- id: 12 -->
+- [x] Push fix to `dev` <!-- id: 13 -->
+- [ ] Notify user to pull and restart <!-- id: 14 -->
