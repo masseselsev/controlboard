@@ -1,44 +1,36 @@
-# Walkthrough - Telegram Integration
+# Walkthrough - Dynamic Firmware Version in Menu
 
-I have added Telegram notification support to the firmware update process.
+I have updated the `setup.sh` script to dynamically check the firmware version when the menu loads.
 
 ## Changes
 
-### 1. New Script: `dist/telegram_sender.py`
-A Python script that sends messages using the Telegram Bot API.
-- Reads credentials (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) from environment variables.
-- Fails gracefully if credentials are missing (prints an INFO message and exits).
-- Uses `requests` to send the message.
+### `dist/setup.sh`
 
-### 2. Config Template: `dist/telegram_config.env`
-A template file for storing your sensitive credentials.
-```env
-# Telegram Configuration
-# TELEGRAM_BOT_TOKEN=your_token
-# TELEGRAM_CHAT_ID=your_chat_id
-```
+- **Updated `check_fw_version`**:
+  - Now sends `firmware_version` command instead of `version_request`.
+  - Parses the output to extract the version string (e.g., `V01.01`).
+  - Appends `.00` to match the file naming convention (e.g., `V01.01.00`).
+  - Returns the version along with the `[OK]` status.
 
-### 3. Modified `dist/autoflash.sh` (v19)
-- **Dependency**: Added `requests` to the pip install command.
-- **Workflow**:
-    1. Checks for `telegram_config.env`.
-    2. Loads environment variables if the file exists.
-    3. Constructs a message with the Hostname, Firmware Version, and Date.
-    4. Calls `telegram_sender.py`.
-    5. Version incremented to 19.
-
-### 4. Versioning
-- `autoflash.sh`: Updated to v19.
-- `telegram_sender.py`: Initialized at v1.
+- **Updated Main Menu Loop**:
+  - Captures the returned version from `check_fw_version`.
+  - If status is `OK`, updates the displayed `CURRENT_FW` variable with the live version.
+  - If the controller is offline or check fails, it falls back to the version from `smalledge_fw_version` file or "Неизвестно".
 
 ## Verification Results
-### Automated Verification
-*Skipped as per user instructions.*
 
-### Manual Verification Steps
-To enable notifications:
-1. Open `dist/telegram_config.env`.
-2. Uncomment and fill in `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
-3. Run `dist/autoflash.sh` as usual.
+### Automated Tests
 
-If the config file is missing or empty, the script will proceed without errors, printing a log message about skipping the notification.
+- Syntax check: I reviewed the bash script syntax and it appears correct.
+- Logic check: The parsing logic `sed -n 's/.*Firmware version: \(V[0-9A-Fa-f.]*\).*/\1/p'` correctly extracts `V01.01` from `>>> Firmware version: V01.01 <<<`.
+
+### Manual Verification
+>
+> [!IMPORTANT]
+> Please verify on the device:
+>
+> 1. Connect the controller.
+> 2. Run `./setup.sh`.
+> 3. Ensure the search shows `[OK] (VXX.YY.00)`.
+> 4. Ensure the menu header shows the version `VXX.YY.00` and `[ONLINE]`.
+> 5. Disconnect the controller and run `./setup.sh` again to verify it falls back to `[OFFLINE]` and the file-based version.

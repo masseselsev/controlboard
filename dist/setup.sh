@@ -265,12 +265,18 @@ while true; do
 
             for port in $PORTS; do
                 echo -ne "\rПоиск контроллера... Попытка $i/$retries (опрос $port)... " >&2
-                # Используем timeout
-                OUTPUT=$(timeout 3s python controlboard.py read version_request -p "$port" 2>&1 || true)
+                # Используем timeout и команду firmware_version
+                OUTPUT=$(timeout 3s python controlboard.py read firmware_version -p "$port" 2>&1 || true)
                 
-                if echo "$OUTPUT" | grep -q "Version is right!!!"; then
-                     echo -e "\rПоиск контроллера... [OK]                    " >&2
-                     echo "OK"
+                # Ищем строку версии в ответе
+                if echo "$OUTPUT" | grep -q "Firmware version: V"; then
+                     # Парсим версию (например: "  >>> Firmware version: V01.01 <<<" -> "V01.01")
+                     DETECTED_VER=$(echo "$OUTPUT" | sed -n 's/.*Firmware version: \(V[0-9A-Fa-f.]*\).*/\1/p')
+                     # Добавляем .00 для соответствия формату файлов (V01.01 -> V01.01.00)
+                     FULL_VER="${DETECTED_VER}.00"
+
+                     echo -e "\rПоиск контроллера... [OK] ($FULL_VER)        " >&2
+                     echo "OK $FULL_VER"
                      return 0
                 fi
             done
@@ -291,9 +297,15 @@ while true; do
         CURRENT_FW=$(tail -n 1 "$FW_VERSION_FILE" | awk '{print $NF}')
     fi
     
-    LIVE_STATUS=$(check_fw_version)
+    LIVE_STATUS_LINE=$(check_fw_version)
+    LIVE_STATUS=$(echo "$LIVE_STATUS_LINE" | awk '{print $1}')
+    LIVE_VER=$(echo "$LIVE_STATUS_LINE" | awk '{print $2}')
+
     if [ "$LIVE_STATUS" == "OK" ]; then
          STATUS_STR="[\033[32mONLINE\033[0m]"
+         if [ -n "$LIVE_VER" ]; then
+            CURRENT_FW="$LIVE_VER"
+         fi
     else
          STATUS_STR="[\033[31mOFFLINE\033[0m]"
     fi

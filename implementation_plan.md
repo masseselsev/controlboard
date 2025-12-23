@@ -1,37 +1,30 @@
-# Implementation Plan - Telegram Notifications
+# Implement Dynamic Firmware Version Check in Menu
 
-## Goal Description
-Add functionality to send a Telegram notification upon successful firmware flashing completion using `autoflash.sh`.
+The goal is to display the live firmware version in the menu when the controller is online, instead of relying solely on the cached file.
 
 ## User Review Required
-> [!IMPORTANT]
-> **Configuration**: You must provide your `BOT_TOKEN` and `CHAT_ID` in `dist/telegram_config.env` (file will be created).
+>
+> [!NOTE]
+> The `check_fw_version` function in `setup.sh` currently uses `version_request` which returns a validation string. I will switch it to use `firmware_version` which returns the actual version strings (e.g., "V01.01").
 
 ## Proposed Changes
-### [NEW] [telegram_sender.py](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/telegram_sender.py)
-- A script that reads `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` from environment variables.
-- Sends a text message passed as an argument.
-- Uses `requests` library.
 
-### [NEW] [telegram_config.env](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/telegram_config.env)
-- Key-value pairs for configuration.
-- `TELEGRAM_BOT_TOKEN=`
-- `TELEGRAM_CHAT_ID=`
+### `dist/setup.sh`
 
-### [MODIFY] [autoflash.sh](file:///c:/Users/masse/OneDrive/%D0%94%D0%BE%D0%BA%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B/GitHub/controlboard/dist/autoflash.sh)
-- **Step 2**: Install `requests` in the python virtual environment.
-- **Step 7**: Source `telegram_config.env` (if exists) and call `telegram_sender.py` with version info.
+#### [MODIFY] [setup.sh](file:///d:/PROG/GitHub/controlboard/dist/setup.sh)
+
+- Modify `check_fw_version` function:
+  - Change command from `read version_request` to `read firmware_version`.
+- Parse the output to extract the version (e.g., "V01.01") and append ".00" to match the file format (e.g., "V01.01.00").
+  - Return `OK <VERSION>` (e.g., `OK V01.01.00`) on success.
+- Modify the main loop:
+  - Parse the result of `check_fw_version`.
+  - If status is `OK`, update `CURRENT_FW` with the detected version.
+  - If status is `FAIL`, keep `CURRENT_FW` as read from file (or "Неизвестно").
 
 ## Verification Plan
+
 ### Manual Verification
-- **Run Sender Manually**:
-  ```bash
-  cd dist
-  source env/bin/activate
-  export TELEGRAM_BOT_TOKEN="your_token"
-  export TELEGRAM_CHAT_ID="your_id"
-  python telegram_sender.py "Test message from CLI"
-  ```
-- **Run Autoflash**:
-  - Perform a flash sequence.
-  - Verify message arrives in Telegram.
+
+- The user will verify on the actual device that the menu displays the version correctly in the format `VXX.YY.00`.
+- I will verify the script logic via inspection.
