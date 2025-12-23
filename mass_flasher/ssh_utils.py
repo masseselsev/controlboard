@@ -5,7 +5,7 @@ import socket
 import re
 
 class FlashWorker(threading.Thread):
-    def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None):
+    def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None, tg_token="", tg_chat_id=""):
         super().__init__()
         self.ip = ip
         self.username = username
@@ -13,6 +13,8 @@ class FlashWorker(threading.Thread):
         self.port = port
         self.log_queue = log_queue
         self.completion_callback = completion_callback
+        self.tg_token = tg_token
+        self.tg_chat_id = tg_chat_id
         self.status = "FAILURE" # SUCCESS, SKIPPED, FAILURE
 
     def log(self, message):
@@ -34,7 +36,9 @@ class FlashWorker(threading.Thread):
             # Note: We need to point to the correct validation/setup script
             # For this task, we assume the standard setup.sh URL which we modified to accept --flash-reboot
             # We use 'main' branch for production.
-            cmd = 'url="https://raw.githubusercontent.com/masseselsev/controlboard/main/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | bash -s "$url" --flash-cleanup'
+            # Inject Telegram credentials so the script can send rich notifications
+            env_vars = f'export TELEGRAM_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; '
+            cmd = env_vars + 'url="https://raw.githubusercontent.com/masseselsev/controlboard/main/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | bash -s "$url" --flash-cleanup'
             
             # Execute
             stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)

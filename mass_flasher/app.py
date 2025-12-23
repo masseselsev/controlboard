@@ -40,9 +40,11 @@ def send_telegram_notification(ip, status):
     token = config.get("telegram_token")
     chat_id = config.get("telegram_chat_id")
     
-    # Suppress redundant notification if skipped? No, user wants ALL notifications.
-    # if status == "SKIPPED":
-    #     return
+    # Suppress notifications for SUCCESS/SKIPPED as they are handled by the device script
+    # to provide rich metadata (hostname, version, date).
+    if status in ["SKIPPED", "SUCCESS"]:
+         log_queue.put(f"[{ip}] [INFO] Status '{status}' handled by device script. Server notification skipped.")
+         return
 
     # Debug log to verify callback execution
     log_queue.put(f"[{ip}] [DEBUG] Sending Telegram for status: {status}")
@@ -115,10 +117,16 @@ def flash_devices():
     if not ips:
         return jsonify({"error": "No valid IPs found"}), 400
         
+    config = load_config()
+    tg_token = config.get("telegram_token", "")
+    tg_chat_id = config.get("telegram_chat_id", "")
+        
     log_queue.put(f"[SYSTEM] Starting batch for {len(ips)} devices: {', '.join(ips)} (Port: {port})")
     
     for ip in ips:
-        worker = FlashWorker(ip, username, password, log_queue, port=port, completion_callback=send_telegram_notification)
+        worker = FlashWorker(ip, username, password, log_queue, port=port, 
+                             completion_callback=send_telegram_notification,
+                             tg_token=tg_token, tg_chat_id=tg_chat_id)
         worker.start()
         
     return jsonify({"status": "started", "count": len(ips)})
