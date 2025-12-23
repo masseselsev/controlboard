@@ -15,6 +15,8 @@
             --error-color: #cf6679;
             --input-bg: #2d2d2d;
             --border-color: #333;
+            --tab-active-bg: #333;
+            --tab-inactive-bg: #1a1a1a;
         }
 
         body {
@@ -88,15 +90,58 @@
             color: var(--text-color);
         }
 
-        #log-container {
+        /* Tabs Styles */
+        .tabs-header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        .tab-btn {
+            background-color: var(--tab-inactive-bg);
+            color: #888;
+            border: 1px solid var(--border-color);
+            border-radius: 4px 4px 0 0;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 0.9em;
+            flex-grow: 0;
+            width: auto;
+            margin-bottom: 0;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background-color: #252525;
+        }
+
+        .tab-btn.active {
+            background-color: var(--tab-active-bg);
+            color: var(--accent-color);
+            border-bottom: 1px solid var(--tab-active-bg);
+            font-weight: bold;
+        }
+
+        .log-container {
             height: 400px;
             overflow-y: auto;
             background-color: #000;
             border: 1px solid var(--border-color);
+            border-top: none;
+            /* Merges with tab */
             padding: 10px;
             font-family: 'Consolas', 'Monaco', monospace;
             white-space: pre-wrap;
             font-size: 14px;
+            display: none;
+            /* Hidden by default */
+        }
+
+        .log-container.active {
+            display: block;
         }
 
         .log-entry {
@@ -173,9 +218,21 @@
         </div>
 
         <div class="card">
-            <h2>Live Logs</h2>
-            <div id="log-container">Initializing log stream...</div>
-            <button class="secondary" onclick="clearLogs()" style="margin-top:10px;">Clear Logs</button>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                <h2>Live Logs</h2>
+                <button class="secondary" onclick="clearLogs()"
+                    style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px;">Clear</button>
+            </div>
+
+            <!-- Tabs Header -->
+            <div id="tabs-header" class="tabs-header">
+                <button class="tab-btn active" onclick="switchTab('all')">All</button>
+            </div>
+
+            <!-- Tabs Content -->
+            <div id="tabs-content">
+                <div id="log-all" class="log-container active">Initializing log stream...</div>
+            </div>
         </div>
     </div>
 
@@ -199,17 +256,93 @@
     </div>
 
     <script>
-        const logContainer = document.getElementById('log-container');
+        const tabsHeader = document.getElementById('tabs-header');
+        const tabsContent = document.getElementById('tabs-content');
+        let knownIps = new Set();
+        let activeTab = 'all';
 
         // SSE Stream
         const eventSource = new EventSource('/stream');
         eventSource.onmessage = function (e) {
-            const div = document.createElement('div');
-            div.className = 'log-entry';
-            div.textContent = e.data;
-            logContainer.appendChild(div);
-            logContainer.scrollTop = logContainer.scrollHeight; // Auto-scroll
+            const msg = e.data;
+
+            // Log to 'All'
+            appendLog('all', msg);
+
+            // Extract IP: [HH:MM:SS] [IP] Message
+            const match = msg.match(/^\[.*?\] \[(.*?)\]/);
+            if (match) {
+                const ip = match[1];
+                if (ip !== 'SYSTEM' && !knownIps.has(ip)) {
+                    createTab(ip);
+                }
+                if (ip !== 'SYSTEM') {
+                    appendLog(ip, msg);
+                }
+            }
         };
+
+        function createTab(ip) {
+            knownIps.add(ip);
+            const safeIp = ip.replace(/\./g, '-');
+
+            // Create Button
+            const btn = document.createElement('button');
+            btn.className = 'tab-btn';
+            btn.textContent = ip;
+            btn.onclick = () => switchTab(safeIp);
+            btn.id = `btn-${safeIp}`;
+            tabsHeader.appendChild(btn);
+
+            // Create Content Div
+            const div = document.createElement('div');
+            div.className = 'log-container';
+            div.id = `log-${safeIp}`;
+            tabsContent.appendChild(div);
+        }
+
+        function switchTab(safeIp) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            let btnId = safeIp === 'all' ? 'all' : safeIp.replace(/\./g, '-');
+
+            // Handle edge case where safeIp might come in raw or safe
+            if (safeIp === 'all') {
+                // Find button with text 'All' or just first one? No, logic is simpler.
+                // The headers logic:
+                // <button ... onclick="switchTab('all')">
+                // <button ... onclick="switchTab('10-8-0-93')">
+                const targetBtn = safeIp === 'all' ?
+                    Array.from(tabsHeader.children).find(b => b.textContent === 'All') :
+                    document.getElementById(`btn-${safeIp}`);
+
+                if (targetBtn) targetBtn.classList.add('active');
+            } else {
+                const targetBtn = document.getElementById(`btn-${safeIp}`);
+                if (targetBtn) targetBtn.classList.add('active');
+            }
+
+            // Update content visibility
+            document.querySelectorAll('.log-container').forEach(d => d.classList.remove('active'));
+            document.getElementById(`log-${safeIp}`).classList.add('active');
+
+            activeTab = safeIp;
+        }
+
+        function appendLog(safeIp, msg) {
+            safeIp = safeIp.replace(/\./g, '-');
+            const container = document.getElementById(`log-${safeIp}`);
+            if (container) {
+                const div = document.createElement('div');
+                div.className = 'log-entry';
+                div.textContent = msg;
+                container.appendChild(div);
+
+                // Auto-scroll only if we are viewing this tab? Or always?
+                // Usually convenient to always auto-scroll
+                container.scrollTop = container.scrollHeight;
+            }
+        }
 
         function startFlash() {
             const ips = document.getElementById('ipInput').value;
@@ -218,6 +351,9 @@
             const port = document.getElementById('port').value;
 
             if (!ips) { alert("Please enter IP addresses"); return; }
+
+            // Reset tabs on new run? Maybe optional.
+            // For now, let's clear unknown tabs if the user clears logs manually.
 
             fetch('/flash', {
                 method: 'POST',
@@ -233,10 +369,14 @@
         }
 
         function clearLogs() {
-            logContainer.innerHTML = '';
+            // Clear content of all containers
+            document.querySelectorAll('.log-container').forEach(c => c.innerHTML = '');
+            // Optionally remove dynamic tabs? 
+            // User might want to keep structure. Let's keep structure but clear content.
+            // If user wants full reset, they can refresh.
         }
 
-        // Settings Logic
+        // Settings Logic matches previous...
         const modal = document.getElementById("settingsModal");
 
         function openSettings() {
@@ -274,7 +414,6 @@
                 });
         }
 
-        // Close modal on click outside
         window.onclick = function (event) {
             if (event.target == modal) {
                 modal.style.display = "none";
