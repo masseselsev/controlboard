@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="33"
+SCRIPT_VERSION="34"
 # ==================================================
 
 # ... (omitted)
@@ -307,7 +307,7 @@ if [ ! -d "env" ]; then
 fi
 
 source env/bin/activate
-pip install pyserial > /dev/null
+pip install pyserial requests > /dev/null
 
 echo "[OK] Система готова к работе."
 
