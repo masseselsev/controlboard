@@ -1,13 +1,13 @@
+from gevent import monkey
+monkey.patch_all()
+
 from flask import Flask, render_template, request, Response, jsonify
 from gevent.pywsgi import WSGIServer
-from gevent import monkey
 import queue
 import json
 import os
 import requests
 from ssh_utils import FlashWorker, parse_ip_ranges
-
-monkey.patch_all()
 
 app = Flask(__name__)
 log_queue = queue.Queue()
