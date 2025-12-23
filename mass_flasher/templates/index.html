@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mass Flasher | VSM2 Control</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #bb86fc;
+            --success-color: #03dac6;
+            --error-color: #cf6679;
+            --input-bg: #2d2d2d;
+            --border-color: #333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        h1, h2 {
+            margin-top: 0;
+            color: var(--accent-color);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input, textarea, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            box-sizing: border-box;
+            font-family: monospace;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+        
+        button.secondary {
+            background-color: #444;
+            color: var(--text-color);
+        }
+
+        #log-container {
+            height: 400px;
+            overflow-y: auto;
+            background-color: #000;
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+        }
+
+        .log-entry { margin-bottom: 2px; }
+        .log-time { color: #888; margin-right: 10px; }
+        .log-ip { color: var(--success-color); margin-right: 10px; }
+        
+        /* Modal */
+        .modal {
+            display: none; 
+            position: fixed; 
+            z-index: 1; 
+            left: 0;
+            top: 0;
+            width: 100%; 
+            height: 100%; 
+            overflow: auto; 
+            background-color: rgba(0,0,0,0.7); 
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: 5% auto; 
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%; 
+            max-width: 500px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h1>Mass Flasher Utility</h1>
+            <button class="secondary" onclick="openSettings()" style="width:auto;">⚙️ Settings</button>
+        </div>
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label>Username</label>
+                <input type="text" id="username" value="user">
+            </div>
+            <div>
+                <label>Password</label>
+                <input type="password" id="password" value="admin">
+            </div>
+        </div>
+
+        <label>IP Addresses / Ranges</label>
+        <div style="font-size: 0.8em; color: #888; margin-bottom: 5px;">
+            Supported formats: <code>192.168.1.10</code>, <code>192.168.1.10-20</code>. Comma separated.
+        </div>
+        <textarea id="ipInput" rows="4" placeholder="192.168.0.10, 192.168.0.20-30, 10.8.0.5"></textarea>
+
+        <button onclick="startFlash()">🚀 Start Mass Flash & Reboot</button>
+    </div>
+
+    <div class="card">
+        <h2>Live Logs</h2>
+        <div id="log-container">Initializing log stream...</div>
+        <button class="secondary" onclick="clearLogs()" style="margin-top:10px;">Clear Logs</button>
+    </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal">
+  <div class="modal-content">
+    <h2>Telegram Notification Settings</h2>
+    <p style="font-size:0.9em; color:#aaa;">Secrets are saved on the server and never sent to devices.</p>
+    
+    <label>Bot Token</label>
+    <input type="text" id="tel_token" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+    
+    <label>Chat ID</label>
+    <input type="text" id="tel_chat_id" placeholder="-1001234567890">
+    
+    <div style="display:flex; gap:10px;">
+        <button onclick="saveSettings()">Save</button>
+        <button class="secondary" onclick="closeSettings()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+    const logContainer = document.getElementById('log-container');
+    
+    // SSE Stream
+    const eventSource = new EventSource('/stream');
+    eventSource.onmessage = function(e) {
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.textContent = e.data;
+        logContainer.appendChild(div);
+        logContainer.scrollTop = logContainer.scrollHeight; // Auto-scroll
+    };
+
+    function startFlash() {
+        const ips = document.getElementById('ipInput').value;
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+
+        if(!ips) { alert("Please enter IP addresses"); return; }
+
+        fetch('/flash', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ips: ips, username: user, password: pass })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.error) alert("Error: " + data.error);
+            else console.log("Batch started:", data.count);
+        })
+        .catch(err => alert("Request failed: " + err));
+    }
+
+    function clearLogs() {
+        logContainer.innerHTML = '';
+    }
+
+    // Settings Logic
+    const modal = document.getElementById("settingsModal");
+    
+    function openSettings() {
+        fetch('/settings')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('tel_token').value = data.telegram_token || '';
+                document.getElementById('tel_chat_id').value = data.telegram_chat_id || '';
+                modal.style.display = "block";
+            });
+    }
+
+    function closeSettings() {
+        modal.style.display = "none";
+    }
+
+    function saveSettings() {
+        const token = document.getElementById('tel_token').value;
+        const chatId = document.getElementById('tel_chat_id').value;
+        
+        const formData = new FormData();
+        formData.append('telegram_token', token);
+        formData.append('telegram_chat_id', chatId);
+
+        fetch('/settings', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.status === 'saved') {
+                closeSettings();
+                alert("Settings saved!");
+            }
+        });
+    }
+
+    // Close modal on click outside
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+</script>
+
+</body>
+</html>
