@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Ensure we are in the script's directory (where Dockerfile is)
+cd "$(dirname "$0")"
+
 # Build the image
 docker build -t mass-flasher .
 
