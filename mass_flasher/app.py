@@ -2,6 +2,14 @@ from gevent import monkey
 # Disable DNS patching to use system resolver (fixes NameResolutionError in some Docker/VPN setups)
 monkey.patch_all(dns=False)
 
+import socket
+import requests.packages.urllib3.util.connection as urllib3_cn
+
+def allowed_gai_family():
+    return socket.AF_INET
+
+urllib3_cn.allowed_gai_family = allowed_gai_family
+
 from flask import Flask, render_template, request, Response, jsonify
 from gevent.pywsgi import WSGIServer
 import queue
