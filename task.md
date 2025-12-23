@@ -1,9 +1,8 @@
-# Configure Auto-Cleanup for Mass Flash
+# Refine Mass Flasher Logs and Cleanup
 
-- [x] Verify/Update `dev_cleanup.sh` to keep version and log files <!-- id: 75 -->
-- [x] Add cleanup logic to `setup.sh` (triggered by flag) <!-- id: 76 -->
-- [x] Update `mass_flasher/ssh_utils.py` to send cleanup flag <!-- id: 77 -->
-- [x] Update `README.md` with cleanup info <!-- id: 78 -->
-- [x] Update `mass_flasher/README.md` (remove RPi5 req) <!-- id: 79 -->
-- [x] Push changes to `main` <!-- id: 80 -->
-- [x] Notify user <!-- id: 81 -->
+- [x] Locate and remove environment variable dump (`declare -x`) <!-- id: 82 -->
+- [x] Bump `setup.sh` version to 33 <!-- id: 84 -->
+- [x] Verify `dev_cleanup.sh` content <!-- id: 83 -->
+- [x] Fix `run_docker.sh` permissions <!-- id: 94 -->
+- [x] Merge `dev` to `main` and push <!-- id: 85 -->
+- [ ] Notify user to rebuild container <!-- id: 86 -->
