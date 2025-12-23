@@ -238,58 +238,58 @@ echo "[OK] Система готова к работе."
 # -----------------------------------------------------
 
 # Функция проверки версии прошивки перед открытием меню
-    check_fw_version() {
-        local retries=3
-        local wait_time=5
-        
+check_fw_version() {
+    local retries=3
+    local wait_time=5
+    
     # Выводим сообщение в stderr чтобы оно отображалось в консоли, но не попадало в переменную возврата
-        echo -ne "Поиск контроллера... " >&2
+    echo -ne "Поиск контроллера... " >&2
 
-        for ((i=1; i<=retries; i++)); do
-            # Ищем ttyUSB* порты (|| true чтобы не вылетал скрипт из-за set -e при отсутствии файлов)
-            PORTS=$(ls /dev/ttyUSB* 2>/dev/null || true)
-            
-            if [ -z "$PORTS" ]; then
-                if [ $i -lt $retries ]; then 
-                    echo -ne "\rПоиск контроллера... Попытка $i/$retries (не найден, ждем ${wait_time}с)... " >&2
-                    sleep $wait_time
-                    continue
-                fi
-                # Возвращаем 0 и пишем статус, чтобы не сработал set -e
-                echo -e "\rПоиск контроллера... Не найден.              " >&2
-                echo "FAIL"
-                return 0
-            fi
-
-            for port in $PORTS; do
-                echo -ne "\rПоиск контроллера... Попытка $i/$retries (опрос $port)... " >&2
-            
-                # Используем timeout и команду firmware_version
-                OUTPUT=$(timeout 3s python controlboard.py read firmware_version -p "$port" 2>&1 || true)
-                
-                # Ищем строку версии в ответе
-                if echo "$OUTPUT" | grep -q "Firmware version: V"; then
-                     # Парсим версию (например: "  >>> Firmware version: V01.01 <<<" -> "V01.01")
-                     DETECTED_VER=$(echo "$OUTPUT" | sed -n 's/.*Firmware version: \(V[0-9A-Fa-f.]*\).*/\1/p')
-                     # Добавляем .00 для соответствия формату файлов (V01.01 -> V01.01.00)
-                     FULL_VER="${DETECTED_VER}.00"
-
-                     echo -e "\rПоиск контроллера... [OK] ($FULL_VER)        " >&2
-                     echo "OK $FULL_VER"
-                     return 0
-                fi
-            done
-            
+    for ((i=1; i<=retries; i++)); do
+        # Ищем ttyUSB* порты (|| true чтобы не вылетал скрипт из-за set -e при отсутствии файлов)
+        PORTS=$(ls /dev/ttyUSB* 2>/dev/null || true)
+        
+        if [ -z "$PORTS" ]; then
             if [ $i -lt $retries ]; then 
-                echo -ne "\rПоиск контроллера... Попытка $i/$retries (нет ответа, ждем ${wait_time}с)... " >&2
+                echo -ne "\rПоиск контроллера... Попытка $i/$retries (не найден, ждем ${wait_time}с)... " >&2
                 sleep $wait_time
+                continue
+            fi
+            # Возвращаем 0 и пишем статус, чтобы не сработал set -e
+            echo -e "\rПоиск контроллера... Не найден.              " >&2
+            echo "FAIL"
+            return 0
+        fi
+
+        for port in $PORTS; do
+            echo -ne "\rПоиск контроллера... Попытка $i/$retries (опрос $port)... " >&2
+            
+            # Используем timeout и команду firmware_version
+            OUTPUT=$(timeout 3s python controlboard.py read firmware_version -p "$port" 2>&1 || true)
+            
+            # Ищем строку версии в ответе
+            if echo "$OUTPUT" | grep -q "Firmware version: V"; then
+                    # Парсим версию (например: "  >>> Firmware version: V01.01 <<<" -> "V01.01")
+                    DETECTED_VER=$(echo "$OUTPUT" | sed -n 's/.*Firmware version: \(V[0-9A-Fa-f.]*\).*/\1/p')
+                    # Добавляем .00 для соответствия формату файлов (V01.01 -> V01.01.00)
+                    FULL_VER="${DETECTED_VER}.00"
+
+                    echo -e "\rПоиск контроллера... [OK] ($FULL_VER)        " >&2
+                    echo "OK $FULL_VER"
+                    return 0
             fi
         done
-        echo -e "\rПоиск контроллера... Нет ответа.              " >&2
-        echo "FAIL"
-        return 0
-    }
-    
+        
+        if [ $i -lt $retries ]; then 
+            echo -ne "\rПоиск контроллера... Попытка $i/$retries (нет ответа, ждем ${wait_time}с)... " >&2
+            sleep $wait_time
+        fi
+    done
+    echo -e "\rПоиск контроллера... Нет ответа.              " >&2
+    echo "FAIL"
+    return 0
+}
+
 while true; do
     FW_VERSION_FILE="$HOME/smalledge_fw_version"
     CURRENT_FW="Неизвестно"
