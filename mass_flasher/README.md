@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Raspberry Pi 5 with Raspberry Pi OS (64-bit recommended)
+- Generic Linux System (or Raspberry Pi) with Docker installed
 - Docker installed
 - Git installed
 - Controlboard repository cloned

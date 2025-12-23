@@ -127,7 +127,10 @@ if [ -n "$CURRENT_FW" ] && [ "$FIRM_VERSION" == "$CURRENT_FW" ]; then
     
     # --- TELEGRAM NOTIFICATION (SKIPPED) ---
     if [ -f "telegram_config.env" ]; then
-        export $(grep -v '^#' telegram_config.env | xargs) 2>/dev/null || true
+        TAGS=$(grep -v '^#' telegram_config.env | xargs)
+    if [ -n "$TAGS" ]; then
+        export $TAGS
+    fi
     fi
     
     # Получение IP (10.8.x.x)
@@ -291,7 +294,10 @@ echo -e "\n  [LOG] Запись добавлена в журнал: $LOG_FILE"
 # --- TELEGRAM NOTIFICATION ---
 if [ -f "telegram_config.env" ]; then
     # Эспортируем переменные из файла, игнорируя комментарии
-    export $(grep -v '^#' telegram_config.env | xargs) 2>/dev/null || true
+    TAGS=$(grep -v '^#' telegram_config.env | xargs)
+    if [ -n "$TAGS" ]; then
+        export $TAGS
+    fi
 fi
 
 MSG="✅ Прошивка завершена успешно!

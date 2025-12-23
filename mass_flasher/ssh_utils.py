@@ -34,7 +34,7 @@ class FlashWorker(threading.Thread):
             # Note: We need to point to the correct validation/setup script
             # For this task, we assume the standard setup.sh URL which we modified to accept --flash-reboot
             # We use 'main' branch for production.
-            cmd = 'url="https://raw.githubusercontent.com/masseselsev/controlboard/main/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | bash -s "$url" --flash-reboot'
+            cmd = 'url="https://raw.githubusercontent.com/masseselsev/controlboard/main/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | bash -s "$url" --flash-cleanup'
             
             # Execute
             stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)

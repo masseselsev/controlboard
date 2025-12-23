@@ -1,8 +1,8 @@
-# Merge to Main
+# Refine Mass Flasher Logs and Cleanup
 
-- [x] Update `ssh_utils.py` to point to `main` branch <!-- id: 68 -->
-- [x] Investigate git checkout failure <!-- id: 100 -->
-- [x] Clean up local state <!-- id: 101 -->
-- [x] Merge `dev` into `main` <!-- id: 69 -->
-- [x] Push `main` to origin <!-- id: 70 -->
-- [x] Notify user <!-- id: 71 -->
+- [x] Locate and remove environment variable dump (`declare -x`) <!-- id: 82 -->
+- [x] Bump `setup.sh` version to 33 <!-- id: 84 -->
+- [x] Verify `dev_cleanup.sh` content <!-- id: 83 -->
+- [x] Fix `run_docker.sh` permissions <!-- id: 94 -->
+- [x] Merge `dev` to `main` and push <!-- id: 85 -->
+- [ ] Notify user to rebuild container <!-- id: 86 -->
