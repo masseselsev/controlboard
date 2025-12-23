@@ -1,37 +1,40 @@
-# Configure SSH Port in Mass Flasher
+# Enhance Tabbed Logging in Mass Flasher
 
 ## User Review Required
 >
 > [!NOTE]
-> The default SSH port will be changed to `2222`. This is different from the standard `22`.
+> Client-side update for better tab management.
 
 ## Proposed Changes
 
 ### `mass_flasher`
 
-#### [MODIFY] [ssh_utils.py](file:///d:/PROG/GitHub/controlboard/mass_flasher/ssh_utils.py)
+#### [MODIFY] [templates/index.html](file:///d:/PROG/GitHub/controlboard/mass_flasher/templates/index.html)
 
-- Update `FlashWorker.__init__` to accept `port` (default 22).
-- Update `client.connect` call to use `port=self.port`.
-
-#### [MODIFY] [app.py](file:///d:/PROG/GitHub/controlboard/mass_flasher/app.py)
-
-- Update `flash_devices` route to extract `port` from request JSON (default 2222).
-- Pass `port` to `FlashWorker`.
-
-#### [MODIFY] [index.html](file:///d:/PROG/GitHub/controlboard/mass_flasher/templates/index.html)
-
-- Add an input field for `SSH Port` with default value `2222`.
-- Update `startFlash()` function to send `port` in the JSON payload.
+- **CSS**:
+  - Add styles for a `.close-tab` button inside `.tab-btn`.
+  - Style it as a small `x` or `&times;` that is subtle but clickable.
+- **JavaScript**:
+  - Update `createTab`:
+    - Append a `<span>` or `<button>` for closing inside the tab.
+    - Add `onclick` event to this close button to call `closeTab(ip, event)`.
+    - `event.stopPropagation()` is needed to prevent switching to the tab when closing it.
+  - Implement `closeTab(ip, event)`:
+    - Remove the button element.
+    - Remove the content container.
+    - Remove from `knownIps`.
+    - Switch to 'all' or another tab if the closed one was active.
+  - Add "Close All" button next to "Clear".
+  - Implement `closeAllTabs()`:
+    - Clear `knownIps`.
+    - Remove all dynamic buttons and containers.
+    - Switch to 'all'.
 
 ## Verification Plan
 
-### Automated Tests
-
-- None (UI interaction required).
-
 ### Manual Verification
 
-- Open the web UI.
-- Verify "SSH Port" input exists and defaults to `2222`.
-- Check that `FlashWorker` receives the correct port.
+- Open UI.
+- Generate some logs (or simulate).
+- Click "x" on a tab -> Tab disappears.
+- Click "Close All" -> All individual tabs disappear, only "All" remains.

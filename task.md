@@ -1,6 +1,6 @@
-# Verify Setup Script Versioning
+# Verify UI Updates
 
-- [x] Verify `dist/setup.sh` has correct exit logic <!-- id: 40 -->
-- [x] Bump `setup.sh` version to 32 <!-- id: 41 -->
-- [x] Push to `dev` <!-- id: 42 -->
-- [x] Notify user to retry and check version <!-- id: 43 -->
+- [x] Check `index.html` for close button logic <!-- id: 53 -->
+- [x] Fix any missing code <!-- id: 54 -->
+- [x] Push fixes to `dev` <!-- id: 55 -->
+- [x] Notify user <!-- id: 56 -->
