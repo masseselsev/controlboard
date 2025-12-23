@@ -273,7 +273,7 @@ sudo apt update > /dev/null 2>&1
 echo "    Проверка пакета $VENV_PKG..."
 if ! dpkg -s "$VENV_PKG" 2>/dev/null | grep -q "Status: install ok installed"; then
     echo "    Установка $VENV_PKG (может занять время)..."
-    if ! sudo apt install -y "$VENV_PKG"; then
+    if ! sudo apt install -y -qq "$VENV_PKG" > /dev/null 2>&1; then
         echo "[CRITICAL ERROR] Не удалось установить $VENV_PKG."
         echo "Попробуйте выполнить вручную: sudo apt update && sudo apt install -y $VENV_PKG"
         log_msg "ERROR: Failed to install $VENV_PKG"
@@ -297,7 +297,7 @@ if [ ! -d "env" ]; then
     if ! python3 -m venv env; then
         echo "[WARN] Ошибка при создании venv. Возможна проблема с пакетом."
         echo "    Попытка переустановки $VENV_PKG..."
-        sudo apt install -y --reinstall "$VENV_PKG"
+        sudo apt install -y -qq --reinstall "$VENV_PKG" > /dev/null 2>&1
         
         if ! python3 -m venv env; then
             echo "[CRITICAL ERROR] Не удалось создать venv даже после переустановки."
