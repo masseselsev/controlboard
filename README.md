@@ -37,15 +37,26 @@ url="https://raw.githubusercontent.com/masseselsev/controlboard/main/dist/setup.
 ./run.sh
 ```
 
-Либо запустите вручную:
+### Консольный режим (CLI)
+
+Для выполнения одиночных команд без меню (например, для интеграции в другие скрипты) используйте `controlboard.py`:
 
 ```bash
 cd ~/controlboard
 source env/bin/activate
+# Пример: Чтение температуры
 python controlboard.py read temp -p /dev/ttyUSB0
+# Пример: Включение LED
+python controlboard.py write led 1 -p /dev/ttyUSB0
 ```
 
-### Обновление прошивки
+### Массовая прошивка (Mass Flasher)
+
+Для одновременной прошивки и настройки множества устройств используйте **Mass Flasher**. Это веб-интерфейс, который позволяет управлять парком устройств в одной локальной сети.
+
+[📄 Подробная инструкция по Mass Flasher](mass_flasher/README.md)
+
+### Обновление прошивки (Локально)
 
 Для обновления прошивки используйте пункт **2) Прошивка контроллера** в меню или запустите скрипт `autoflash.sh`:
 
