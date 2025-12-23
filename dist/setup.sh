@@ -121,11 +121,14 @@ fi
 # 1. АВТО-КОНФИГУРАЦИЯ И ПАРСИНГ АРГУМЕНТОВ
 # -----------------------------------------------------
 AUTO_FLASH_REBOOT=false
+AUTO_FLASH_CLEANUP=false
 
 # Проходимся по всем аргументам
 for arg in "$@"; do
     if [ "$arg" == "--flash-reboot" ]; then
         AUTO_FLASH_REBOOT=true
+    elif [ "$arg" == "--flash-cleanup" ]; then
+        AUTO_FLASH_CLEANUP=true
     elif [[ "$arg" =~ https://raw.githubusercontent.com ]]; then
         # Если аргумент похож на URL, используем его
         INPUT_URL="$arg"
@@ -168,7 +171,7 @@ if [ ! -d "$INSTALL_DIR" ]; then
     track_change "DIR" "$INSTALL_DIR"
 fi
 
-if [ ! -t 0 ] && [ "$AUTO_FLASH_REBOOT" != true ]; then
+if [ ! -t 0 ] && [ "$AUTO_FLASH_REBOOT" != true ] && [ "$AUTO_FLASH_CLEANUP" != true ]; then
     echo "==============================================="
     echo "   ПОДГОТОВКА ЗАГРУЗЧИКА..."
     echo "==============================================="
@@ -311,15 +314,14 @@ echo "[OK] Система готова к работе."
 # -----------------------------------------------------
 # 7. АВТОМАТИЧЕСКИЙ РЕЖИМ (ЕСЛИ ЗАДАН ФЛАГ)
 # -----------------------------------------------------
-if [ "$AUTO_FLASH_REBOOT" = true ]; then
+if [ "$AUTO_FLASH_REBOOT" = true ] || [ "$AUTO_FLASH_CLEANUP" = true ]; then
     echo "==============================================="
-    echo "   РЕЖИМ АВТОМАТИЧЕСКОЙ ПРОШИВКИ (--flash-reboot)"
+    echo "   РЕЖИМ АВТОМАТИЧЕСКОЙ ПРОШИВКИ"
+    if [ "$AUTO_FLASH_CLEANUP" = true ]; then
+        echo "   (С ПОСЛЕДУЮЩЕЙ ОЧИСТКОЙ)"
+    fi
     echo "==============================================="
     echo "[INFO] Запуск мастера прошивки..."
-    
-    # Запускаем autoflash без лишних подтверждений (сам скрипт autoflash.sh неинтерактивный по сути, кроме ввода)
-    # Но мы должны убедиться, что он не ждет ввода. Autoflash вроде бы не ждет ввода, если нашел прошивку.
-    # Если прошивок нет или ошибок - он выйдет.
     
     set +e
     ./autoflash.sh
@@ -327,16 +329,32 @@ if [ "$AUTO_FLASH_REBOOT" = true ]; then
     set -e
     
     if [ "$EXIT_CODE" -eq 0 ]; then
-        echo "[INFO] Прошивка успешна. Перезагрузка..."
+        echo "[INFO] Прошивка успешна."
+        
+        if [ "$AUTO_FLASH_CLEANUP" = true ]; then
+            echo "[INFO] Выполнение очистки (dev_cleanup)..."
+            cp dev_cleanup.sh /tmp/dev_cleanup_temp.sh
+            chmod +x /tmp/dev_cleanup_temp.sh
+            /tmp/dev_cleanup_temp.sh
+        fi
+
+        echo "[INFO] Перезагрузка..."
         sudo reboot
     elif [ "$EXIT_CODE" -eq 2 ]; then
-        echo "[INFO] Прошивка не требуется (версия актуальна). Выход(2)."
+        echo "[INFO] Прошивка не требуется (версия актуальна)."
+        
+        if [ "$AUTO_FLASH_CLEANUP" = true ]; then
+             echo "[INFO] Выполнение очистки..."
+             cp dev_cleanup.sh /tmp/dev_cleanup_temp.sh
+             chmod +x /tmp/dev_cleanup_temp.sh
+             /tmp/dev_cleanup_temp.sh
+        fi
         exit 2
     else
         echo "[ERROR] Ошибка прошивки (код $EXIT_CODE). Выход с ошибкой."
         exit $EXIT_CODE
     fi
-    # На всякий случай, если reboot не сработал сразу
+    # На всякий случай
     exit 0
 fi
 
