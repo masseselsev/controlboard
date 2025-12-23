@@ -26,17 +26,23 @@ def save_config(config):
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=4)
 
-def send_telegram_notification(ip, success):
+def send_telegram_notification(ip, status):
     config = load_config()
     token = config.get("telegram_token")
     chat_id = config.get("telegram_chat_id")
     
+    # Suppress redundant notification if skipped (device already sent one)
+    if status == "SKIPPED":
+        return
+
     if not token or not chat_id:
         log_queue.put(f"[{ip}] [WARN] Telegram config missing, notification skipped.")
         return
 
+    success = (status == "SUCCESS")
     status_icon = "✅" if success else "❌"
-    status_text = "SUCCESS" if success else "FAILURE"
+    status_text = status
+    
     message = f"{status_icon} <b>Mass Flasher Report</b>\n\n" \
               f"<b>Target:</b> {ip}\n" \
               f"<b>Status:</b> {status_text}\n" \

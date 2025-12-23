@@ -13,7 +13,7 @@ class FlashWorker(threading.Thread):
         self.port = port
         self.log_queue = log_queue
         self.completion_callback = completion_callback
-        self.success = False
+        self.status = "FAILURE" # SUCCESS, SKIPPED, FAILURE
 
     def log(self, message):
         timestamp = time.strftime("%H:%M:%S")
@@ -47,21 +47,21 @@ class FlashWorker(threading.Thread):
             
             if exit_status == 0:
                 self.log("SUCCESS: Flash completed and reboot triggered.")
-                self.success = True
+                self.status = "SUCCESS"
             elif exit_status == 2:
                 self.log("SUCCESS: Firmware already up to date (Skipped).")
-                self.success = True
+                self.status = "SKIPPED"
             else:
                 self.log(f"FAILURE: Process exited with code {exit_status}")
-                self.success = False
+                self.status = "FAILURE"
                 
         except Exception as e:
             self.log(f"ERROR: {str(e)}")
-            self.success = False
+            self.status = "FAILURE"
         finally:
             client.close()
             if self.completion_callback:
-                self.completion_callback(self.ip, self.success)
+                self.completion_callback(self.ip, self.status)
 
 def parse_ip_ranges(input_str):
     """
