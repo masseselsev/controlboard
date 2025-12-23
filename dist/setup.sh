@@ -454,14 +454,18 @@ while true; do
             ;;
         2)
             echo "[INFO] Запуск мастера прошивки..."
+            set +e
             ./autoflash.sh
+            set -e
             echo "Нажмите Enter для возврата в меню..."
             read
             ;;
         9)
             echo "[INFO] Запуск мастера прошивки с перезагрузкой..."
+            set +e
             ./autoflash.sh
             EXIT_CODE=$?
+            set -e
             
             if [ "$EXIT_CODE" -eq 0 ]; then
                 echo "[INFO] Прошивка успешна. Перезагрузка через 3 секунды..."
