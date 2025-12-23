@@ -105,13 +105,16 @@
             color: #888;
             border: 1px solid var(--border-color);
             border-radius: 4px 4px 0 0;
-            padding: 8px 15px;
+            padding: 8px 10px 8px 15px;
             cursor: pointer;
             font-size: 0.9em;
             flex-grow: 0;
             width: auto;
             margin-bottom: 0;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .tab-btn:hover {
@@ -123,6 +126,20 @@
             color: var(--accent-color);
             border-bottom: 1px solid var(--tab-active-bg);
             font-weight: bold;
+        }
+
+        .close-tab {
+            font-size: 1.1em;
+            line-height: 0.8;
+            color: #666;
+            border-radius: 50%;
+            padding: 0 4px;
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        .close-tab:hover {
+            color: var(--error-color);
+            background-color: rgba(255, 255, 255, 0.1);
         }
 
         .log-container {
@@ -220,8 +237,13 @@
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:flex-end;">
                 <h2>Live Logs</h2>
-                <button class="secondary" onclick="clearLogs()"
-                    style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px;">Clear</button>
+                <div>
+                    <button class="secondary" onclick="closeAllTabs()"
+                        style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px; margin-right:5px;">Close
+                        All Tabs</button>
+                    <button class="secondary" onclick="clearLogs()"
+                        style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px;">Clear Logs</button>
+                </div>
             </div>
 
             <!-- Tabs Header -->
@@ -289,9 +311,22 @@
             // Create Button
             const btn = document.createElement('button');
             btn.className = 'tab-btn';
-            btn.textContent = ip;
             btn.onclick = () => switchTab(safeIp);
             btn.id = `btn-${safeIp}`;
+
+            // Tab Text
+            const textSpan = document.createElement('span');
+            textSpan.textContent = ip;
+            btn.appendChild(textSpan);
+
+            // Close Button
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'close-tab';
+            closeSpan.innerHTML = '&times;';
+            closeSpan.title = "Close Tab";
+            closeSpan.onclick = (e) => closeTab(ip, e);
+            btn.appendChild(closeSpan);
+
             tabsHeader.appendChild(btn);
 
             // Create Content Div
@@ -299,6 +334,30 @@
             div.className = 'log-container';
             div.id = `log-${safeIp}`;
             tabsContent.appendChild(div);
+        }
+
+        function closeTab(ip, event) {
+            if (event) event.stopPropagation();
+
+            const safeIp = ip.replace(/\./g, '-');
+            const btn = document.getElementById(`btn-${safeIp}`);
+            const div = document.getElementById(`log-${safeIp}`);
+
+            if (btn) btn.remove();
+            if (div) div.remove();
+
+            knownIps.delete(ip);
+
+            // If closed tab was active, switch to all
+            if (activeTab === safeIp) {
+                switchTab('all');
+            }
+        }
+
+        function closeAllTabs() {
+            const ips = Array.from(knownIps);
+            ips.forEach(ip => closeTab(ip, null));
+            switchTab('all');
         }
 
         function switchTab(safeIp) {
@@ -371,9 +430,6 @@
         function clearLogs() {
             // Clear content of all containers
             document.querySelectorAll('.log-container').forEach(c => c.innerHTML = '');
-            // Optionally remove dynamic tabs? 
-            // User might want to keep structure. Let's keep structure but clear content.
-            // If user wants full reset, they can refresh.
         }
 
         // Settings Logic matches previous...
