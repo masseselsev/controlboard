@@ -31,22 +31,30 @@ def send_telegram_notification(ip, status):
     token = config.get("telegram_token")
     chat_id = config.get("telegram_chat_id")
     
-    # Suppress redundant notification if skipped (device already sent one)
-    if status == "SKIPPED":
-        return
+    # Suppress redundant notification if skipped? No, user wants ALL notifications.
+    # if status == "SKIPPED":
+    #     return
 
     if not token or not chat_id:
         log_queue.put(f"[{ip}] [WARN] Telegram config missing, notification skipped.")
         return
 
-    success = (status == "SUCCESS")
-    status_icon = "✅" if success else "❌"
+    if status == "SUCCESS":
+        status_icon = "✅"
+        action_text = "Firmware Update & Reboot"
+    elif status == "SKIPPED":
+        status_icon = "ℹ️"
+        action_text = "Update Skipped (Already Checking)"
+    else:
+        status_icon = "❌"
+        action_text = "Failed"
+
     status_text = status
     
     message = f"{status_icon} <b>Mass Flasher Report</b>\n\n" \
               f"<b>Target:</b> {ip}\n" \
               f"<b>Status:</b> {status_text}\n" \
-              f"<b>Action:</b> Firmware Update & Reboot"
+              f"<b>Action:</b> {action_text}"
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
