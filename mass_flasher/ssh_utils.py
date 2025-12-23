@@ -5,11 +5,12 @@ import socket
 import re
 
 class FlashWorker(threading.Thread):
-    def __init__(self, ip, username, password, log_queue, completion_callback=None):
+    def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None):
         super().__init__()
         self.ip = ip
         self.username = username
         self.password = password
+        self.port = port
         self.log_queue = log_queue
         self.completion_callback = completion_callback
         self.success = False
@@ -25,7 +26,7 @@ class FlashWorker(threading.Thread):
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
         try:
-            client.connect(self.ip, username=self.username, password=self.password, timeout=10)
+            client.connect(self.ip, port=self.port, username=self.username, password=self.password, timeout=10)
             self.log("Connected. Starting flash process...")
             
             # Construct the command

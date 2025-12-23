@@ -75,16 +75,20 @@ def flash_devices():
     ip_string = data.get('ips', '')
     username = data.get('username', 'user')
     password = data.get('password', 'admin')
+    try:
+        port = int(data.get('port', 2222))
+    except ValueError:
+        port = 2222
     
     ips = parse_ip_ranges(ip_string)
     
     if not ips:
         return jsonify({"error": "No valid IPs found"}), 400
         
-    log_queue.put(f"[SYSTEM] Starting batch for {len(ips)} devices: {', '.join(ips)}")
+    log_queue.put(f"[SYSTEM] Starting batch for {len(ips)} devices: {', '.join(ips)} (Port: {port})")
     
     for ip in ips:
-        worker = FlashWorker(ip, username, password, log_queue, completion_callback=send_telegram_notification)
+        worker = FlashWorker(ip, username, password, log_queue, port=port, completion_callback=send_telegram_notification)
         worker.start()
         
     return jsonify({"status": "started", "count": len(ips)})
