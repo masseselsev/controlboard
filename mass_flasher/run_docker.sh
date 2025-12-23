@@ -3,8 +3,13 @@
 # Ensure we are in the script's directory (where Dockerfile is)
 cd "$(dirname "$0")"
 
-# Build the image
-docker build -t mass-flasher .
+# Build the image (force rebuild to pick up code changes)
+# Explicitly remove old image if it exists to be safe
+if [ "$(docker images -q mass-flasher)" ]; then
+    docker rmi mass-flasher || true
+fi
+
+docker build --no-cache -t mass-flasher .
 
 # Run the container
 # We mount a local config.json file (creating it if it doesn't exist) so settings persist.
