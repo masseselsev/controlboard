@@ -48,6 +48,9 @@ class FlashWorker(threading.Thread):
             if exit_status == 0:
                 self.log("SUCCESS: Flash completed and reboot triggered.")
                 self.success = True
+            elif exit_status == 2:
+                self.log("SUCCESS: Firmware already up to date (Skipped).")
+                self.success = True
             else:
                 self.log(f"FAILURE: Process exited with code {exit_status}")
                 self.success = False
