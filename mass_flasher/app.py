@@ -1,5 +1,6 @@
 from gevent import monkey
-monkey.patch_all()
+# Disable DNS patching to use system resolver (fixes NameResolutionError in some Docker/VPN setups)
+monkey.patch_all(dns=False)
 
 from flask import Flask, render_template, request, Response, jsonify
 from gevent.pywsgi import WSGIServer
@@ -35,6 +36,9 @@ def send_telegram_notification(ip, status):
     # if status == "SKIPPED":
     #     return
 
+    # Debug log to verify callback execution
+    log_queue.put(f"[{ip}] [DEBUG] Sending Telegram for status: {status}")
+
     if not token or not chat_id:
         log_queue.put(f"[{ip}] [WARN] Telegram config missing, notification skipped.")
         return
@@ -64,7 +68,11 @@ def send_telegram_notification(ip, status):
     }
     
     try:
-        requests.post(url, json=payload, timeout=5)
+        resp = requests.post(url, json=payload, timeout=5)
+        if resp.status_code != 200:
+             log_queue.put(f"[{ip}] [ERROR] Telegram API Error {resp.status_code}: {resp.text}")
+        else:
+             log_queue.put(f"[{ip}] [INFO] Telegram notification sent.")
     except Exception as e:
         log_queue.put(f"[{ip}] [ERROR] Failed to send Telegram: {e}")
 
