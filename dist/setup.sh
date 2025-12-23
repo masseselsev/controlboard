@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="30"
+SCRIPT_VERSION="31"
 # ==================================================
 
 # ... (omitted)
@@ -330,8 +330,8 @@ if [ "$AUTO_FLASH_REBOOT" = true ]; then
         echo "[INFO] Прошивка успешна. Перезагрузка..."
         sudo reboot
     elif [ "$EXIT_CODE" -eq 2 ]; then
-        echo "[INFO] Прошивка не требуется (версия актуальна). Выход(0)."
-        exit 0
+        echo "[INFO] Прошивка не требуется (версия актуальна). Выход(2)."
+        exit 2
     else
         echo "[ERROR] Ошибка прошивки (код $EXIT_CODE). Выход с ошибкой."
         exit $EXIT_CODE
