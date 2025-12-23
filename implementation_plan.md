@@ -1,30 +1,37 @@
-# Implement Dynamic Firmware Version Check in Menu
-
-The goal is to display the live firmware version in the menu when the controller is online, instead of relying solely on the cached file.
+# Configure SSH Port in Mass Flasher
 
 ## User Review Required
 >
 > [!NOTE]
-> The `check_fw_version` function in `setup.sh` currently uses `version_request` which returns a validation string. I will switch it to use `firmware_version` which returns the actual version strings (e.g., "V01.01").
+> The default SSH port will be changed to `2222`. This is different from the standard `22`.
 
 ## Proposed Changes
 
-### `dist/setup.sh`
+### `mass_flasher`
 
-#### [MODIFY] [setup.sh](file:///d:/PROG/GitHub/controlboard/dist/setup.sh)
+#### [MODIFY] [ssh_utils.py](file:///d:/PROG/GitHub/controlboard/mass_flasher/ssh_utils.py)
 
-- Modify `check_fw_version` function:
-  - Change command from `read version_request` to `read firmware_version`.
-- Parse the output to extract the version (e.g., "V01.01") and append ".00" to match the file format (e.g., "V01.01.00").
-  - Return `OK <VERSION>` (e.g., `OK V01.01.00`) on success.
-- Modify the main loop:
-  - Parse the result of `check_fw_version`.
-  - If status is `OK`, update `CURRENT_FW` with the detected version.
-  - If status is `FAIL`, keep `CURRENT_FW` as read from file (or "Неизвестно").
+- Update `FlashWorker.__init__` to accept `port` (default 22).
+- Update `client.connect` call to use `port=self.port`.
+
+#### [MODIFY] [app.py](file:///d:/PROG/GitHub/controlboard/mass_flasher/app.py)
+
+- Update `flash_devices` route to extract `port` from request JSON (default 2222).
+- Pass `port` to `FlashWorker`.
+
+#### [MODIFY] [index.html](file:///d:/PROG/GitHub/controlboard/mass_flasher/templates/index.html)
+
+- Add an input field for `SSH Port` with default value `2222`.
+- Update `startFlash()` function to send `port` in the JSON payload.
 
 ## Verification Plan
 
+### Automated Tests
+
+- None (UI interaction required).
+
 ### Manual Verification
 
-- The user will verify on the actual device that the menu displays the version correctly in the format `VXX.YY.00`.
-- I will verify the script logic via inspection.
+- Open the web UI.
+- Verify "SSH Port" input exists and defaults to `2222`.
+- Check that `FlashWorker` receives the correct port.
