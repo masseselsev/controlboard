@@ -20,7 +20,7 @@ STATE_FILE="dev_init.txt"
 
 log_msg() {
     local msg="$1"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - Was installed: V$TARGET_VER" >> "$FW_VERSION_FILE"_LOG"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $msg" >> "$GLOBAL_LOG"
 }
 
 track_change() {
