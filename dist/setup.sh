@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="36"
+SCRIPT_VERSION="37"
 # ==================================================
 
 # ... (omitted)
@@ -94,6 +94,11 @@ track_change() {
 }
 
 log_msg "--- Запуск setup.sh (v$SCRIPT_VERSION) ---"
+# DEBUG TRACE
+if [ -n "$TELEGRAM_BOT_TOKEN" ]; then echo "DEBUG: [START] TELEGRAM_BOT_TOKEN is SET"; else echo "DEBUG: [START] TELEGRAM_BOT_TOKEN is UNSET"; fi
+if [ -n "$TELEGRAM_CHAT_ID" ]; then echo "DEBUG: [START] TELEGRAM_CHAT_ID is SET"; else echo "DEBUG: [START] TELEGRAM_CHAT_ID is UNSET"; fi
+
+echo "--- Настройка платы управления (v$SCRIPT_VERSION) ---"
 
 sudo_smart() {
     if sudo -n true 2>/dev/null; then
@@ -224,9 +229,11 @@ if ! groups | grep -q "dialout"; then
 
     # Pass Telegram vars explicitly to survive 'sg' environment reset
     ENV_STR=""
-    if [ -n "$TELEGRAM_BOT_TOKEN" ]; then ENV_STR="export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN'; export TELEGRAM_CHAT_ID='$TELEGRAM_CHAT_ID';"; fi
-    
-    exec sg dialout -c "$ENV_STR CB_SETUP_RUNNING=true /bin/bash \"$SCRIPT_PATH\" $1"
+    if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+        ENV_STR="export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN'; export TELEGRAM_CHAT_ID='$TELEGRAM_CHAT_ID';"
+    fi
+    echo "DEBUG: [PRE-SG] Passing vars to sg..."
+    exec sg dialout -c "$ENV_STR CB_SETUP_RUNNING=true /bin/bash \"$SCRIPT_PATH\" \"$@\""
 fi
 echo "[OK] Права доступа подтверждены."
 
@@ -262,6 +269,8 @@ fi
 
 echo "[OK] Файлы успешно обновлены."
 log_msg "Files synchronized."
+
+if [ -n "$TELEGRAM_BOT_TOKEN" ]; then echo "DEBUG: [POST-SYNC] TELEGRAM_BOT_TOKEN is SET"; else echo "DEBUG: [POST-SYNC] TELEGRAM_BOT_TOKEN is UNSET"; fi
 
 # Сохраняем Telegram Credentials (после синхронизации, чтобы не перезаписать)
 if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
