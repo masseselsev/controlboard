@@ -405,7 +405,7 @@
 
             return text.replace(/\033\[([\d;]*)m/g, (match, codes) => {
                 if (!codes || codes === '0') return '</span>';
-                
+
                 const style = codes.split(';').map(code => colors[code]).filter(Boolean).join(';');
                 if (style) return `<span style="${style}">`;
                 return '';
@@ -419,7 +419,7 @@
                 const div = document.createElement('div');
                 div.className = 'log-entry';
                 // Use formatted HTML with colors
-                div.innerHTML = ansiToHtml(msg); 
+                div.innerHTML = ansiToHtml(msg);
                 container.appendChild(div);
 
                 // Auto-scroll only if we are viewing this tab? Or always?
@@ -500,6 +500,14 @@
                 modal.style.display = "none";
             }
         }
+        // Shift+Enter to submit
+        document.getElementById('ipInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();
+                startFlash();
+            }
+        });
+
     </script>
 
 </body>
