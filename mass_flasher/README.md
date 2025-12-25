@@ -1,4 +1,4 @@
-# Mass Flasher Deployment on Raspberry Pi 5
+# Mass Flasher Deployment
 
 ## Prerequisites
 
@@ -107,3 +107,4 @@ git pull origin dev
 docker stop mass_flasher_app
 docker rm mass_flasher_app
 ```
+
