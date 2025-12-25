@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="37"
+SCRIPT_VERSION="38"
 # ==================================================
 
 # ... (omitted)
@@ -94,9 +94,7 @@ track_change() {
 }
 
 log_msg "--- Запуск setup.sh (v$SCRIPT_VERSION) ---"
-# DEBUG TRACE
-if [ -n "$TELEGRAM_BOT_TOKEN" ]; then echo "DEBUG: [START] TELEGRAM_BOT_TOKEN is SET"; else echo "DEBUG: [START] TELEGRAM_BOT_TOKEN is UNSET"; fi
-if [ -n "$TELEGRAM_CHAT_ID" ]; then echo "DEBUG: [START] TELEGRAM_CHAT_ID is SET"; else echo "DEBUG: [START] TELEGRAM_CHAT_ID is UNSET"; fi
+
 
 echo "--- Настройка платы управления (v$SCRIPT_VERSION) ---"
 
@@ -232,7 +230,7 @@ if ! groups | grep -q "dialout"; then
     if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
         ENV_STR="export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN'; export TELEGRAM_CHAT_ID='$TELEGRAM_CHAT_ID';"
     fi
-    echo "DEBUG: [PRE-SG] Passing vars to sg..."
+
     exec sg dialout -c "$ENV_STR CB_SETUP_RUNNING=true /bin/bash \"$SCRIPT_PATH\" \"$@\""
 fi
 echo "[OK] Права доступа подтверждены."
@@ -270,7 +268,7 @@ fi
 echo "[OK] Файлы успешно обновлены."
 log_msg "Files synchronized."
 
-if [ -n "$TELEGRAM_BOT_TOKEN" ]; then echo "DEBUG: [POST-SYNC] TELEGRAM_BOT_TOKEN is SET"; else echo "DEBUG: [POST-SYNC] TELEGRAM_BOT_TOKEN is UNSET"; fi
+
 
 # Сохраняем Telegram Credentials (после синхронизации, чтобы не перезаписать)
 if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
