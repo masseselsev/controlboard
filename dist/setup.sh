@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="38"
+SCRIPT_VERSION="39"
 # ==================================================
 
 # ... (omitted)
@@ -94,7 +94,6 @@ track_change() {
 }
 
 log_msg "--- Запуск setup.sh (v$SCRIPT_VERSION) ---"
-
 
 echo "--- Настройка платы управления (v$SCRIPT_VERSION) ---"
 
@@ -230,7 +229,6 @@ if ! groups | grep -q "dialout"; then
     if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
         ENV_STR="export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN'; export TELEGRAM_CHAT_ID='$TELEGRAM_CHAT_ID';"
     fi
-
     exec sg dialout -c "$ENV_STR CB_SETUP_RUNNING=true /bin/bash \"$SCRIPT_PATH\" \"$@\""
 fi
 echo "[OK] Права доступа подтверждены."
@@ -267,8 +265,6 @@ fi
 
 echo "[OK] Файлы успешно обновлены."
 log_msg "Files synchronized."
-
-
 
 # Сохраняем Telegram Credentials (после синхронизации, чтобы не перезаписать)
 if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
