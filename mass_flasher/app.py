@@ -93,8 +93,12 @@ def flash_devices():
         
     log_queue.put(f"[SYSTEM] Starting batch for {len(ips)} devices: {', '.join(ips)} (Port: {port})")
     
+    config = load_config()
+    tg_token = config.get("telegram_token", "")
+    tg_chat_id = config.get("telegram_chat_id", "")
+
     for ip in ips:
-        worker = FlashWorker(ip, username, password, log_queue, port=port, completion_callback=send_telegram_notification)
+        worker = FlashWorker(ip, username, password, log_queue, port=port, completion_callback=send_telegram_notification, tg_token=tg_token, tg_chat_id=tg_chat_id)
         worker.start()
         
     return jsonify({"status": "started", "count": len(ips)})
