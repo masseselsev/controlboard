@@ -1,15 +1,15 @@
-# Mass Flasher Deployment with Docker Compose
+# Развертывание Mass Flasher с Docker Compose
 
-## Prerequisites
+## Требования
 
-- Generic Linux System (Ubuntu, Debian, Raspberry Pi OS, etc.)
-- **Docker** & **Docker Compose** installed
-- **Git** installed
+- Система Linux (Ubuntu, Debian, Raspberry Pi OS и т.д.)
+- Установленные **Docker** и **Docker Compose**
+- Установленный **Git**
 
-## Quick Start (Fresh Install)
+## Быстрый старт (Чистая установка)
 
-1. **Clone Repository**:
-   Open a terminal and clone the repository.
+1. **Клонирование репозитория**:
+   Откройте терминал и клонируйте репозиторий.
 
    ```bash
    cd ~
@@ -17,38 +17,38 @@
    cd controlboard
    ```
 
-2. **Navigate to Mass Flasher Directory**:
+2. **Переход в папку Mass Flasher**:
 
    ```bash
    cd mass_flasher
    ```
 
-3. **Start the Application**:
-   Use Docker Compose to build and start the service in background mode.
+3. **Запуск приложения**:
+   Используйте Docker Compose для сборки и запуска сервиса в фоновом режиме.
 
    ```bash
-   # New Docker Compose V2
+   # Для новой версии Docker Compose V2
    docker compose up -d --build
    
-   # Or legacy docker-compose
+   # Или для старой версии (docker-compose)
    docker-compose up -d --build
    ```
 
-   This will:
-   - Build the `mass-flasher` Docker image.
-   - Create a persistent volume locally in `./data/`.
-   - Start the container `mass_flasher_app`.
+   Команда выполнит:
+   - Сборку Docker-образа `mass-flasher`.
+   - Создание локального volume в папке `./data/` для хранения данных.
+   - Запуск контейнера `mass_flasher_app`.
 
-4. **Access the Interface**:
-   Open a web browser and navigate to:
-   **`http://<YOUR_DEVICE_IP>:5000`** 
-   (e.g., `http://localhost:5000` or `http://192.168.1.50:5000`)
+4. **Доступ к интерфейсу**:
+   Откройте браузер и перейдите по адресу:
+   **`http://<IP_ВАШЕГО_УСТРОЙСТВА>:5000`** 
+   (например, `http://localhost:5000` или `http://192.168.1.50:5000`)
 
 ---
 
-## Updating an Existing Installation
+## Обновление существующей установки
 
-If you already have the repository cloned:
+Если репозиторий уже склонирован, выполните следующие команды для обновления:
 
 ```bash
 cd ~/controlboard
@@ -60,53 +60,53 @@ docker compose up -d --build
 
 ---
 
-## Authentication & Users
+## Авторизация и пользователи
 
-The system uses a local user database.
+Система использует локальную базу пользователей.
 
-1. **First Login / Admin Setup**:
-   - Upon first access, you will be redirected to the **Login Page**.
-   - Enter your desired **Admin Username** (e.g., `admin`) and **Password**.
-   - Click **Login**.
-   - **Important**: The first user to successfully login becomes the Admin (account is created automatically).
+1. **Первый вход / Настройка Админа**:
+   - При первом входе вы будете перенаправлены на **Страницу входа (Login)**.
+   - Введите желаемое **Имя пользователя** (например, `admin`) и **Пароль**.
+   - Нажмите **Login**.
+   - **Важно**: Первый пользователь, который успешно войдет в систему, автоматически станет администратором (аккаунт создастся автоматически).
 
-2. **Registering Additional Users**:
-   - On the login page, enter a new Username and Password.
-   - Click **Register**.
-   - (Note: Currently registration is open; in a secured environment, you may want to restrict this or manage `data/users.json` manually).
+2. **Регистрация дополнительных пользователей**:
+   - На странице входа введите новое имя пользователя и пароль.
+   - Нажмите **Register**.
+   - (Примечание: В данный момент регистрация открыта; в защищенной среде вы можете управлять пользователями вручную через файл `data/users.json`).
 
-3. **Logout**:
-   - Use the **Logout** button in the header.
+3. **Выход**:
+   - Используйте кнопку **Logout** в заголовке страницы.
 
-## Data Persistence
+## Сохранение данных
 
-Configuration and user data are stored in the `./data` directory within `mass_flasher`.
-- `data/users.json`: User credentials.
-- `data/settings_<username>.json`: Per-user settings (Telegram tokens).
+Конфигурация и данные пользователей хранятся в папке `./data` внутри директории `mass_flasher`.
+- `data/users.json`: Учетные данные пользователей (в зашифрованном виде).
+- `data/settings_<username>.json`: Персональные настройки пользователя (например, токены Telegram).
 
-**Backups:** To backup your installation, simply copy the `mass_flasher/data/` folder.
+**Резервное копирование:** Чтобы сделать бэкап, просто скопируйте папку `mass_flasher/data/`.
 
-## Usage
+## Использование
 
-1. **Settings / Telegram**: 
-   - Click **⚙️ Settings** to configure your **Telegram Bot Token** and **Chat ID**.
-   - These settings are personal to your user account.
-2. **Flash Parameters**: 
-   - **Username/Password**: SSH credentials for the *target Raspberry Pi devices* (default: `user` / `admin`).
-   - **SSH Port**: Default is `2222` (VSM2) or `22`.
-3. **Targets**: 
-   - Enter IP addresses or ranges (e.g., `192.168.1.10-20`).
-4. **Start**: 
-   - Click **Start Mass Flash**.
+1. **Настройки Telegram**: 
+   - Нажмите **⚙️ Settings**, чтобы указать ваш **Telegram Bot Token** и **Chat ID**.
+   - Эти настройки являются персональными для вашего аккаунта.
+2. **Параметры прошивки**: 
+   - **Username/Password**: SSH доступы для *целевых устройств Raspberry Pi* (по умолчанию: `user` / `admin`).
+   - **SSH Port**: По умолчанию `2222` (для версий VSM2) или `22`.
+3. **Цели (Targets)**: 
+   - Введите IP-адреса или диапазоны (например, `192.168.1.10-20`).
+4. **Запуск**: 
+   - Нажмите **Start Mass Flash**.
 
-## Maintenance
+## Обслуживание
 
-**View Logs**:
+**Просмотр логов**:
 ```bash
 docker compose logs -f
 ```
 
-**Stop**:
+**Остановка**:
 ```bash
 docker compose down
 ```
