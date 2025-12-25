@@ -403,7 +403,14 @@
                 '37': 'color: white'
             };
 
-            return text.replace(/\033\[([\d;]*)m/g, (match, codes) => {
+            // 1. Strip cursor/scroll/clear control sequences (garbage in logs)
+            // Matches ESC [ ... letter where letter is NOT 'm'
+            // Common codes: A (up), B (down), C (fwd), D (back), H (home), J (clear screen), K (clear line), r (scroll region)
+            text = text.replace(/\033\[[\d;]*[A-LNP-Za-z]/g, '');
+
+            // 2. Process Colors (ending in 'm')
+            return text.replace(/\033\[[\d;]*m/g, (match) => {
+                const codes = match.slice(2, -1); // remove \033[ and m
                 if (!codes || codes === '0') return '</span>';
 
                 const style = codes.split(';').map(code => colors[code]).filter(Boolean).join(';');
