@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  mass-flasher:
+    build: .
+    container_name: mass_flasher_app
+    network_mode: "host"
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PYTHONUNBUFFERED=1

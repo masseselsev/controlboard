@@ -14,7 +14,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create volume mount point for config
-VOLUME /app/config.json
+# Create volume mount point for data (config)
+VOLUME /app/data
 
 EXPOSE 5000
 

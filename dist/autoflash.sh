@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="25"
+SCRIPT_VERSION="24"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -126,11 +126,11 @@ if [ -n "$CURRENT_FW" ] && [ "$FIRM_VERSION" == "$CURRENT_FW" ]; then
     log_msg "Skipped flashing: versions match ($FIRM_VERSION)"
     
     # --- TELEGRAM NOTIFICATION (SKIPPED) ---
-    if [ -z "$TELEGRAM_BOT_TOKEN" ] && [ -f "telegram_config.env" ]; then
+    if [ -f "telegram_config.env" ]; then
         TAGS=$(grep -v '^#' telegram_config.env | xargs)
-        if [ -n "$TAGS" ]; then
-            export $TAGS
-        fi
+    if [ -n "$TAGS" ]; then
+        export $TAGS
+    fi
     fi
     
     # Получение IP (10.8.x.x)
@@ -292,18 +292,12 @@ echo "$TIMESTAMP $FIRM_VERSION" >> "$LOG_FILE"
 echo -e "\n  [LOG] Запись добавлена в журнал: $LOG_FILE"
 
 # --- TELEGRAM NOTIFICATION ---
-# If env vars are already set (from Mass Flasher), use them.
-# Otherwise try to load from file.
-if [ -z "$TELEGRAM_BOT_TOKEN" ] && [ -f "telegram_config.env" ]; then
+if [ -f "telegram_config.env" ]; then
     # Эспортируем переменные из файла, игнорируя комментарии
     TAGS=$(grep -v '^#' telegram_config.env | xargs)
     if [ -n "$TAGS" ]; then
         export $TAGS
     fi
-fi
-if [ -z "$TELEGRAM_BOT_TOKEN" ] && [ -f "telegram_config.env" ]; then
-     # Fallback for old style config just in case
-     source telegram_config.env
 fi
 
 MSG="✅ Прошивка завершена успешно!

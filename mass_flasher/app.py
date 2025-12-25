@@ -1,74 +1,88 @@
 from gevent import monkey
-# Disable DNS patching to use system resolver (fixes NameResolutionError in some Docker/VPN setups)
-monkey.patch_all(dns=False)
+monkey.patch_all()
 
-import socket
-import requests.packages.urllib3.util.connection as urllib3_cn
-
-def allowed_gai_family():
-    return socket.AF_INET
-
-urllib3_cn.allowed_gai_family = allowed_gai_family
-
-from flask import Flask, render_template, request, Response, jsonify
+from flask import Flask, render_template, request, Response, jsonify, session, redirect, url_for, flash
 from gevent.pywsgi import WSGIServer
+from werkzeug.security import generate_password_hash, check_password_hash
 import queue
 import json
 import os
 import requests
+from functools import wraps
 from ssh_utils import FlashWorker, parse_ip_ranges
 
 app = Flask(__name__)
+app.secret_key = 'super_secret_key_change_this_for_prod' 
 log_queue = queue.Queue()
-CONFIG_FILE = "config.json"
 
-def load_config():
-    if os.path.exists(CONFIG_FILE):
+USERS_FILE = "data/users.json"
+DATA_DIR = "data"
+
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+# --- USER MANAGEMENT ---
+
+def load_users():
+    if os.path.exists(USERS_FILE):
         try:
-            with open(CONFIG_FILE, 'r') as f:
+            with open(USERS_FILE, 'r') as f:
                 return json.load(f)
         except:
             return {}
     return {}
 
-def save_config(config):
-    with open(CONFIG_FILE, 'w') as f:
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=4)
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+# --- CONFIG MANAGEMENT ---
+
+def get_config_path(username):
+    return os.path.join(DATA_DIR, f"settings_{username}.json")
+
+def load_user_config(username):
+    path = get_config_path(username)
+    if os.path.exists(path):
+        try:
+            with open(path, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_user_config(username, config):
+    path = get_config_path(username)
+    with open(path, 'w') as f:
         json.dump(config, f, indent=4)
 
-def send_telegram_notification(ip, status):
-    config = load_config()
-    token = config.get("telegram_token")
-    chat_id = config.get("telegram_chat_id")
-    
-    # Suppress notifications for SUCCESS/SKIPPED as they are handled by the device script
-    # to provide rich metadata (hostname, version, date).
-    if status in ["SKIPPED", "SUCCESS"]:
-         log_queue.put(f"[{ip}] [INFO] Status '{status}' handled by device script. Server notification skipped.")
-         return
+# --- NOTIFICATIONS ---
 
-    # Debug log to verify callback execution
-    log_queue.put(f"[{ip}] [DEBUG] Sending Telegram for status: {status}")
+def send_telegram_notification(ip, status, token, chat_id):
+    # Suppress redundant notification if skipped (device already sent one)
+    if status == "SKIPPED":
+        return
 
     if not token or not chat_id:
         log_queue.put(f"[{ip}] [WARN] Telegram config missing, notification skipped.")
         return
 
-    if status == "SUCCESS":
-        status_icon = "✅"
-        action_text = "Firmware Update & Reboot"
-    elif status == "SKIPPED":
-        status_icon = "ℹ️"
-        action_text = "Update Skipped (Already Checking)"
-    else:
-        status_icon = "❌"
-        action_text = "Failed"
-
+    success = (status == "SUCCESS")
+    status_icon = "✅" if success else "❌"
     status_text = status
     
     message = f"{status_icon} <b>Mass Flasher Report</b>\n\n" \
               f"<b>Target:</b> {ip}\n" \
               f"<b>Status:</b> {status_text}\n" \
-              f"<b>Action:</b> {action_text}"
+              f"<b>Action:</b> Firmware Update & Reboot"
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
@@ -78,35 +92,85 @@ def send_telegram_notification(ip, status):
     }
     
     try:
-        resp = requests.post(url, json=payload, timeout=5)
-        if resp.status_code != 200:
-             log_queue.put(f"[{ip}] [ERROR] Telegram API Error {resp.status_code}: {resp.text}")
-        else:
-             log_queue.put(f"[{ip}] [INFO] Telegram notification sent.")
+        requests.post(url, json=payload, timeout=5)
     except Exception as e:
         log_queue.put(f"[{ip}] [ERROR] Failed to send Telegram: {e}")
 
+# --- ROUTES ---
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        users = load_users()
+        
+        # Simple Admin init if no users exist
+        if not users and username == 'admin':
+            users['admin'] = generate_password_hash(password)
+            save_users(users)
+            session['user'] = 'admin'
+            return redirect(url_for('index'))
+
+        if username in users and check_password_hash(users[username], password):
+            session['user'] = username
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error="Invalid credentials")
+            
+    return render_template('login.html')
+
+@app.route('/register', methods=['POST'])
+def register():
+    # Only allow logged in users to register new users? Or open registration?
+    # For this task, let's allow open registration for invalid users OR simple management.
+    # Let's simple allow registration if passed properly.
+    username = request.form.get('username')
+    password = request.form.get('password')
+    
+    if not username or not password:
+         return jsonify({"error": "Missing fields"}), 400
+         
+    users = load_users()
+    if username in users:
+        return jsonify({"error": "User exists"}), 400
+        
+    users[username] = generate_password_hash(password)
+    save_users(users)
+    return jsonify({"status": "created", "username": username})
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    return redirect(url_for('login'))
+
 @app.route('/')
+@login_required
 def index():
-    return render_template('index.html')
+    return render_template('index.html', user=session['user'])
 
 @app.route('/settings', methods=['GET', 'POST'])
+@login_required
 def settings():
+    username = session['user']
     if request.method == 'POST':
-        config = load_config()
+        config = load_user_config(username)
         config['telegram_token'] = request.form.get('telegram_token')
         config['telegram_chat_id'] = request.form.get('telegram_chat_id')
-        save_config(config)
+        save_user_config(username, config)
         return jsonify({"status": "saved"})
     else:
-        return jsonify(load_config())
+        return jsonify(load_user_config(username))
 
 @app.route('/flash', methods=['POST'])
+@login_required
 def flash_devices():
+    username = session['user']
     data = request.json
     ip_string = data.get('ips', '')
-    username = data.get('username', 'user')
-    password = data.get('password', 'admin')
+    ssh_user = data.get('username', 'user')
+    ssh_pass = data.get('password', 'admin')
     try:
         port = int(data.get('port', 2222))
     except ValueError:
@@ -117,26 +181,33 @@ def flash_devices():
     if not ips:
         return jsonify({"error": "No valid IPs found"}), 400
         
-    config = load_config()
+    log_queue.put(f"[SYSTEM] User '{username}' starting batch for {len(ips)} devices.")
+    
+    config = load_user_config(username)
     tg_token = config.get("telegram_token", "")
     tg_chat_id = config.get("telegram_chat_id", "")
-        
-    log_queue.put(f"[SYSTEM] Starting batch for {len(ips)} devices: {', '.join(ips)} (Port: {port})")
-    
+
+    # Create a closure to capture token/chat_id for THIS batch
+    def notification_callback(ip, status):
+        send_telegram_notification(ip, status, tg_token, tg_chat_id)
+
     for ip in ips:
-        worker = FlashWorker(ip, username, password, log_queue, port=port, 
-                             completion_callback=send_telegram_notification,
-                             tg_token=tg_token, tg_chat_id=tg_chat_id)
+        # Pass callback
+        worker = FlashWorker(ip, ssh_user, ssh_pass, log_queue, port=port, 
+                           completion_callback=notification_callback, 
+                           tg_token=tg_token, tg_chat_id=tg_chat_id)
         worker.start()
         
     return jsonify({"status": "started", "count": len(ips)})
 
 @app.route('/stream')
+@login_required
 def stream():
     def event_stream():
         while True:
             try:
                 # Get log with timeout to allow checking for disconnects
+                # Note: This shares the queue among ALL users.
                 message = log_queue.get(timeout=10)
                 yield f"data: {message}\n\n"
             except queue.Empty:
@@ -144,117 +215,7 @@ def stream():
     
     return Response(event_stream(), mimetype="text/event-stream")
 
-from datetime import datetime, timedelta
-from cryptography import x509
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
-import ssl
-import socket
-
-def generate_self_signed_cert():
-    """Generates a self-signed certificate and key for HTTPS handling."""
-    key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-    )
-    subject = issuer = x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, u"MassFlasher"),
-    ])
-    cert = x509.CertificateBuilder().subject_name(
-        subject
-    ).issuer_name(
-        issuer
-    ).public_key(
-        key.public_key()
-    ).serial_number(
-        x509.random_serial_number()
-    ).not_valid_before(
-        datetime.utcnow()
-    ).not_valid_after(
-        datetime.utcnow() + timedelta(days=365)
-    ).add_extension(
-        x509.SubjectAlternativeName([x509.DNSName(u"localhost")]),
-        critical=False,
-    ).sign(key, hashes.SHA256())
-
-    with open("key.pem", "wb") as f:
-        f.write(key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption(),
-        ))
-    with open("cert.pem", "wb") as f:
-        f.write(cert.public_bytes(serialization.Encoding.PEM))
-
-class DualStackServer(WSGIServer):
-    def handle(self, sock, address):
-        try:
-            # Peek at the first byte of the connection
-            # TLS Client Hello always starts with 0x16
-            first_byte = sock.recv(1, socket.MSG_PEEK)
-            
-            if len(first_byte) > 0 and first_byte[0] == 0x16:
-                # This is an SSL/TLS connection.
-                # Wrap the socket to accept the handshake, then redirect.
-                self.handle_ssl_redirect(sock, address)
-            else:
-                # Standard HTTP connection, let WSGIServer handle it
-                super().handle(sock, address)
-        except Exception as e:
-            # Log error but don't crash
-            # print(f"Connection handling error: {e}")
-            pass
-
-    def handle_ssl_redirect(self, sock, address):
-        try:
-            # Context for our self-signed cert
-            context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            context.load_cert_chain(certfile="cert.pem", keyfile="key.pem")
-            
-            # Wrap the socket
-            with context.wrap_socket(sock, server_side=True) as ssock:
-                # Read the request line (we don't strictly need to parse it perfectly, 
-                # but we need to consume it to satisfy the client usually)
-                request_data = ssock.read(4096) 
-                
-                # Construct HTTP Redirect Response
-                # We redirect to the same host but HTTP.
-                # Since we don't easily know the full Host header from simple read without parsing,
-                # we can try to extract it or just use a relative redirect if browser supports it (implied host).
-                # But browsers need absolute URI usually for 301/302? No, location can be relative in modern HTTP.
-                # However, switching protocol requires full URL.
-                
-                # Simple extraction of Host header
-                decoded = request_data.decode('utf-8', errors='ignore')
-                host = "localhost:5000" # Default
-                for line in decoded.split('\r\n'):
-                    if line.lower().startswith("host:"):
-                        host = line.split(":", 1)[1].strip()
-                        break
-                
-                redirect_url = f"http://{host}/"
-                
-                response = (
-                    f"HTTP/1.1 302 Found\r\n"
-                    f"Location: {redirect_url}\r\n"
-                    f"Connection: close\r\n"
-                    f"\r\n"
-                )
-                ssock.write(response.encode('utf-8'))
-        except Exception as e:
-            pass
-            # print(f"SSL Redirect error: {e}")
-
 if __name__ == '__main__':
-    # Ensure certs exist for the redirector
-    if not os.path.exists("cert.pem") or not os.path.exists("key.pem"):
-        print("Generating self-signed certificate for automatic HTTPS->HTTP redirect...")
-        generate_self_signed_cert()
-
-    # Disable the default log to stderr for WSGIServer to reduce noise? 
-    # Or keep it. The DualStackServer should prevent the 'Invalid HTTP method' error reaching WSGI.
-    http_server = DualStackServer(('0.0.0.0', 5000), app)
-    print("Serving on http://0.0.0.0:5000 (with auto-redirect for HTTPS)")
+    http_server = WSGIServer(('0.0.0.0', 5000), app)
+    print("Serving on http://0.0.0.0:5000")
     http_server.serve_forever()

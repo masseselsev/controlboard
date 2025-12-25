@@ -1,8 +1,16 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="34"
+# ================= ВЕРСИЯ СКРИПТА =================
+SCRIPT_VERSION="40"
 # ==================================================
+
+# Цвета
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+BLUE='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
 # ... (omitted)
 
@@ -71,7 +79,7 @@ SCRIPT_VERSION="34"
 GITHUB_USER="masseselsev"
 GITHUB_REPO="controlboard"
 REPO_FOLDER="dist"
-BRANCH="main"
+BRANCH="dev"
 INSTALL_DIR="$HOME/controlboard"
 # ================================================
 
@@ -94,6 +102,8 @@ track_change() {
 }
 
 log_msg "--- Запуск setup.sh (v$SCRIPT_VERSION) ---"
+
+echo "--- Настройка платы управления (v$SCRIPT_VERSION) ---"
 
 sudo_smart() {
     if sudo -n true 2>/dev/null; then
@@ -171,6 +181,8 @@ if [ ! -d "$INSTALL_DIR" ]; then
     track_change "DIR" "$INSTALL_DIR"
 fi
 
+
+
 if [ ! -t 0 ] && [ "$AUTO_FLASH_REBOOT" != true ] && [ "$AUTO_FLASH_CLEANUP" != true ]; then
     echo "==============================================="
     echo "   ПОДГОТОВКА ЗАГРУЗЧИКА..."
@@ -209,9 +221,25 @@ if ! groups | grep -q "dialout"; then
     log_msg "User $USER added to group dialout"
     echo "[OK] Права добавлены. Перезапуск..."
     sleep 1
-    exec sg dialout -c "CB_SETUP_RUNNING=true /bin/bash $0 $1"
+    
+    # Explicitly resolve script path for restart, handling cases where $0 is bash
+    SCRIPT_PATH="$0"
+    if [[ "$SCRIPT_PATH" == *"/bash" ]] || [[ "$SCRIPT_PATH" == "bash" ]]; then
+       if [ -f "$INSTALL_DIR/setup.sh" ]; then
+           SCRIPT_PATH="$INSTALL_DIR/setup.sh"
+       elif [ -f "./setup.sh" ]; then
+           SCRIPT_PATH="./setup.sh"
+       fi
+    fi
+
+    # Pass Telegram vars explicitly to survive 'sg' environment reset
+    ENV_STR=""
+    if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+        ENV_STR="export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN'; export TELEGRAM_CHAT_ID='$TELEGRAM_CHAT_ID';"
+    fi
+    exec sg dialout -c "$ENV_STR CB_SETUP_RUNNING=true /bin/bash \"$SCRIPT_PATH\" \"$@\""
 fi
-echo "[OK] Права доступа подтверждены."
+echo -e "[${GREEN}OK${NC}] Права доступа подтверждены."
 
 # -----------------------------------------------------
 # 4. СИНХРОНИЗАЦИЯ ФАЙЛОВ
@@ -243,8 +271,15 @@ if [ -f "dev_init.txt" ] && [ "$PWD" != "$INSTALL_DIR" ]; then
     mv dev_init.txt "$INSTALL_DIR/"
 fi
 
-echo "[OK] Файлы успешно обновлены."
+echo -e "[${GREEN}OK${NC}] Файлы успешно обновлены."
 log_msg "Files synchronized."
+
+# Сохраняем Telegram Credentials (после синхронизации, чтобы не перезаписать)
+if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+    echo "TELEGRAM_BOT_TOKEN=\"$TELEGRAM_BOT_TOKEN\"" > "$INSTALL_DIR/telegram_config.env"
+    echo "TELEGRAM_CHAT_ID=\"$TELEGRAM_CHAT_ID\"" >> "$INSTALL_DIR/telegram_config.env"
+    log_msg "Telegram config saved from environment."
+fi
 
 # -----------------------------------------------------
 # 5. СОЗДАНИЕ RUN.SH
@@ -257,7 +292,7 @@ url="${CURRENT_URL}?v=\$(date +%s)"
 wget -O - "\$url" | bash -s "\$url"
 EOF
 chmod +x "$RUN_SCRIPT"
-echo "[OK] Создан скрипт быстрого запуска: $RUN_SCRIPT"
+echo -e "[${GREEN}OK${NC}] Создан скрипт быстрого запуска: $RUN_SCRIPT"
 
 # -----------------------------------------------------
 # 6. ПОДГОТОВКА ОКРУЖЕНИЯ
@@ -268,12 +303,12 @@ PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_i
 VENV_PKG="python${PY_VER}-venv"
 
 echo "    Обновление списков пакетов (apt update)..."
-sudo apt update > /dev/null 2>&1
+sudo apt update
 
 echo "    Проверка пакета $VENV_PKG..."
 if ! dpkg -s "$VENV_PKG" 2>/dev/null | grep -q "Status: install ok installed"; then
     echo "    Установка $VENV_PKG (может занять время)..."
-    if ! sudo apt install -y -qq "$VENV_PKG" > /dev/null 2>&1; then
+    if ! sudo apt install -y "$VENV_PKG"; then
         echo "[CRITICAL ERROR] Не удалось установить $VENV_PKG."
         echo "Попробуйте выполнить вручную: sudo apt update && sudo apt install -y $VENV_PKG"
         log_msg "ERROR: Failed to install $VENV_PKG"
@@ -292,24 +327,22 @@ if [ -d "env" ]; then
     fi
 fi
 
-if [ ! -d "env" ]; then
-    echo "    Создание виртуального окружения (env)..."
+echo "    Создание виртуального окружения (env)..."
+if ! python3 -m venv env; then
+    echo "[WARN] Ошибка при создании venv. Возможна проблема с пакетом."
+    echo "    Попытка переустановки $VENV_PKG..."
+    sudo apt install -y --reinstall "$VENV_PKG"
+    
     if ! python3 -m venv env; then
-        echo "[WARN] Ошибка при создании venv. Возможна проблема с пакетом."
-        echo "    Попытка переустановки $VENV_PKG..."
-        sudo apt install -y -qq --reinstall "$VENV_PKG" > /dev/null 2>&1
-        
-        if ! python3 -m venv env; then
-            echo "[CRITICAL ERROR] Не удалось создать venv даже после переустановки."
-            exit 1
-        fi
+        echo "[CRITICAL ERROR] Не удалось создать venv даже после переустановки."
+        exit 1
     fi
 fi
 
 source env/bin/activate
-pip install pyserial requests > /dev/null
+pip install pyserial requests
 
-echo "[OK] Система готова к работе."
+echo -e "[${GREEN}OK${NC}] Система готова к работе."
 
 # -----------------------------------------------------
 # 7. АВТОМАТИЧЕСКИЙ РЕЖИМ (ЕСЛИ ЗАДАН ФЛАГ)
@@ -321,7 +354,7 @@ if [ "$AUTO_FLASH_REBOOT" = true ] || [ "$AUTO_FLASH_CLEANUP" = true ]; then
         echo "   (С ПОСЛЕДУЮЩЕЙ ОЧИСТКОЙ)"
     fi
     echo "==============================================="
-    echo "[INFO] Запуск мастера прошивки..."
+    echo -e "[${BLUE}INFO${NC}] Запуск мастера прошивки..."
     
     set +e
     ./autoflash.sh
@@ -329,7 +362,7 @@ if [ "$AUTO_FLASH_REBOOT" = true ] || [ "$AUTO_FLASH_CLEANUP" = true ]; then
     set -e
     
     if [ "$EXIT_CODE" -eq 0 ]; then
-        echo "[INFO] Прошивка успешна."
+        echo -e "[${GREEN}INFO${NC}] Прошивка успешна."
         
         if [ "$AUTO_FLASH_CLEANUP" = true ]; then
             echo "[INFO] Выполнение очистки (dev_cleanup)..."

@@ -35,17 +35,44 @@ class FlashWorker(threading.Thread):
             # We use the raw file URL logic similar to setup.sh but ensure it executes non-interactively
             # Note: We need to point to the correct validation/setup script
             # For this task, we assume the standard setup.sh URL which we modified to accept --flash-reboot
-            # We use 'main' branch for production.
+            # We use 'dev' branch as requested.
             # Inject Telegram credentials so the script can send rich notifications
-            env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; '
-            cmd = env_vars + 'url="https://raw.githubusercontent.com/masseselsev/controlboard/main/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | bash -s "$url" --flash-cleanup'
+            if not self.tg_token or not self.tg_chat_id:
+                self.log("WARN: Telegram credentials are missing. Notifications will NOT be sent.")
+            
+            env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; export TERM=xterm-256color; '
+            cmd = env_vars + 'url="https://raw.githubusercontent.com/masseselsev/controlboard/dev/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | bash -s "$url" --flash-cleanup'
             
             # Execute
             stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)
             
-            # Stream output
-            for line in iter(stdout.readline, ""):
-                self.log(line.strip())
+            # Stream output with support for \r (progress bars)
+            channel = stdout.channel
+            buffer = ""
+            while not channel.exit_status_ready() or channel.recv_ready():
+                if channel.recv_ready():
+                    data = channel.recv(4096).decode('utf-8', errors='replace')
+                    buffer += data
+                    while '\n' in buffer or '\r' in buffer:
+                        idx_n = buffer.find('\n')
+                        idx_r = buffer.find('\r')
+                        
+                        if idx_n == -1: idx_n = float('inf')
+                        if idx_r == -1: idx_r = float('inf')
+                        
+                        split_idx = int(min(idx_n, idx_r))
+                        
+                        line = buffer[:split_idx]
+                        if line.strip():
+                            self.log(line.strip())
+                        
+                        buffer = buffer[split_idx+1:]
+                else:
+                    time.sleep(0.1)
+            
+            # Log any remaining buffer
+            if buffer.strip():
+                self.log(buffer.strip())
             
             exit_status = stdout.channel.recv_exit_status()
             
