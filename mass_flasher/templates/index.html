@@ -207,7 +207,12 @@
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1>Mass Flasher Utility</h1>
-                <button class="secondary" onclick="openSettings()" style="width:auto;">⚙️ Settings</button>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span style="color:#888; font-size:0.9em;">User: <b>{{ user }}</b></span>
+                    <button class="secondary" onclick="openSettings()" style="width:auto;">⚙️ Settings</button>
+                    <a href="/logout" style="text-decoration:none;"><button class="secondary"
+                            style="width:auto; background-color:#333;">Logout</button></a>
+                </div>
             </div>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -393,7 +398,7 @@
             const colors = {
                 '0': null,
                 '1': 'font-weight: bold',
-                '30': 'color: black',
+                '30': 'color: #aaaaaa', // Black (mapped to gray for dark theme visibility)
                 '31': 'color: #ff5555', // Red
                 '32': 'color: #50fa7b', // Green
                 '33': 'color: #f1fa8c', // Yellow
