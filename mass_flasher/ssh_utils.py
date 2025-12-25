@@ -41,7 +41,7 @@ class FlashWorker(threading.Thread):
                 self.log("WARN: Telegram credentials are missing. Notifications will NOT be sent.")
             
             env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; export TERM=xterm-256color; '
-            cmd = env_vars + 'url="https://raw.githubusercontent.com/masseselsev/controlboard/dev/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | bash -s "$url" --flash-cleanup'
+            cmd = env_vars + 'url="https://raw.githubusercontent.com/masseselsev/controlboard/main/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | bash -s "$url" --flash-cleanup'
             
             # Execute
             stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)
