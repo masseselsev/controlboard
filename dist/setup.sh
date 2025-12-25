@@ -1,8 +1,16 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="39"
+# ================= ВЕРСИЯ СКРИПТА =================
+SCRIPT_VERSION="40"
 # ==================================================
+
+# Цвета
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+BLUE='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
 
 # ... (omitted)
 
@@ -231,7 +239,7 @@ if ! groups | grep -q "dialout"; then
     fi
     exec sg dialout -c "$ENV_STR CB_SETUP_RUNNING=true /bin/bash \"$SCRIPT_PATH\" \"$@\""
 fi
-echo "[OK] Права доступа подтверждены."
+echo -e "[${GREEN}OK${NC}] Права доступа подтверждены."
 
 # -----------------------------------------------------
 # 4. СИНХРОНИЗАЦИЯ ФАЙЛОВ
@@ -263,7 +271,7 @@ if [ -f "dev_init.txt" ] && [ "$PWD" != "$INSTALL_DIR" ]; then
     mv dev_init.txt "$INSTALL_DIR/"
 fi
 
-echo "[OK] Файлы успешно обновлены."
+echo -e "[${GREEN}OK${NC}] Файлы успешно обновлены."
 log_msg "Files synchronized."
 
 # Сохраняем Telegram Credentials (после синхронизации, чтобы не перезаписать)
@@ -284,7 +292,7 @@ url="${CURRENT_URL}?v=\$(date +%s)"
 wget -O - "\$url" | bash -s "\$url"
 EOF
 chmod +x "$RUN_SCRIPT"
-echo "[OK] Создан скрипт быстрого запуска: $RUN_SCRIPT"
+echo -e "[${GREEN}OK${NC}] Создан скрипт быстрого запуска: $RUN_SCRIPT"
 
 # -----------------------------------------------------
 # 6. ПОДГОТОВКА ОКРУЖЕНИЯ
@@ -334,7 +342,7 @@ fi
 source env/bin/activate
 pip install pyserial requests
 
-echo "[OK] Система готова к работе."
+echo -e "[${GREEN}OK${NC}] Система готова к работе."
 
 # -----------------------------------------------------
 # 7. АВТОМАТИЧЕСКИЙ РЕЖИМ (ЕСЛИ ЗАДАН ФЛАГ)
@@ -346,7 +354,7 @@ if [ "$AUTO_FLASH_REBOOT" = true ] || [ "$AUTO_FLASH_CLEANUP" = true ]; then
         echo "   (С ПОСЛЕДУЮЩЕЙ ОЧИСТКОЙ)"
     fi
     echo "==============================================="
-    echo "[INFO] Запуск мастера прошивки..."
+    echo -e "[${BLUE}INFO${NC}] Запуск мастера прошивки..."
     
     set +e
     ./autoflash.sh
@@ -354,7 +362,7 @@ if [ "$AUTO_FLASH_REBOOT" = true ] || [ "$AUTO_FLASH_CLEANUP" = true ]; then
     set -e
     
     if [ "$EXIT_CODE" -eq 0 ]; then
-        echo "[INFO] Прошивка успешна."
+        echo -e "[${GREEN}INFO${NC}] Прошивка успешна."
         
         if [ "$AUTO_FLASH_CLEANUP" = true ]; then
             echo "[INFO] Выполнение очистки (dev_cleanup)..."
