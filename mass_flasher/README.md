@@ -1,21 +1,21 @@
-# Mass Flasher Deployment on Raspberry Pi 5
+# Mass Flasher Deployment with Docker Compose
 
 ## Prerequisites
 
-- Generic Linux System (or Raspberry Pi) with Docker installed
-- Docker installed
+- Generic Linux System (or Raspberry Pi)
+- Docker & Docker Compose installed
 - Git installed
 - Controlboard repository cloned
 
-## Installation Steps
+## Quick Start (Docker Compose)
 
-1. **Update Repository**:
-   Navigate to the repository and pull the latest changes from the `dev` branch.
+1. **Clone/Update Repository**:
+   Navigate to the repository and pull the latest changes from the `main` branch.
 
    ```bash
    cd ~/controlboard
-   git checkout dev
-   git pull origin dev
+   git checkout main
+   git pull origin main
    ```
 
 2. **Navigate to Mass Flasher Directory**:
@@ -24,86 +24,79 @@
    cd mass_flasher
    ```
 
-3. **Make Script Executable** (if not already):
+3. **Start the Application**:
+   Use Docker Compose to build and start the service in background mode.
 
    ```bash
-   chmod +x run_docker.sh
+   # New Docker Compose V2
+   docker compose up -d --build
+   
+   # Or legacy docker-compose
+   docker-compose up -d --build
    ```
 
-4. **Run the Application**:
-   Execute the helper script to build and start the container.
-
-   ```bash
-   ./run_docker.sh
-   ```
-
-   This script will:
+   This will:
    - Build the `mass-flasher` Docker image.
-   - Create a `config.json` file if it doesn't exist.
-   - Stop and remove any existing container named `mass_flasher_app`.
-   - Start a new container with auto-restart enabled.
+   - Create a persistent volume in `./data/` for storing users and configurations.
+   - Start the container `mass_flasher_app` on host network (or mapping port 5000).
 
-5. **Access the Interface**:
+4. **Access the Interface**:
    Open a web browser and navigate to:
-   `http://<YOUR_RPI_IP>:5000`
+   **`http://<YOUR_IP>:5000`** (e.g. http://localhost:5000)
 
-## Troubleshooting
+## Authentication & Users
 
-- **Logs**: To check the application logs, verify the container name (default: `mass_flasher_app`) and run:
+The system now supports user authentication.
 
-  ```bash
-  docker logs -f mass_flasher_app
-  ```
+1. **First Login / Admin Setup**:
+   - Upon first access, you will be redirected to the **Login Page**.
+   - Enter your desired **Username** (e.g., `admin`) and **Password**.
+   - Click **Login**.
+   - Since no users exist initially, the first login attempt with the username `admin` will **automatically create the Admin account** with the password you provided.
 
-- **Permissions**: Ensure your user is in the `docker` group to run docker commands without sudo:
+2. **Registering Additional Users**:
+   - On the login page, enter a new Username and Password.
+   - Click **Register**.
+   - Alternatively, logged-in users can just share creds, or you can manage `data/users.json` manually if needed.
 
-  ```bash
-  sudo usermod -aG docker $USER
-  # Log out and back in for changes to take effect
-  ```
+3. **Logout**:
+   - Use the **Logout** button in the header to end your session.
+
+## Data Persistence
+
+Configuration and user data are stored in the `./data` directory within `mass_flasher`. This directory is mounted into the container.
+- `data/users.json`: Stores user credentials (hashed).
+- `data/settings_<username>.json`: Stores per-user settings (e.g., Telegram tokens).
+
+**Backups:** You only need to backup the `data/` folder.
 
 ## Usage
 
-1. **Настройки**: Укажите `Username`, `Password` (SSH) и `SSH Port` (обычно 2222 или 22).
-2. **IP-адреса**: Введите список IP-адресов целевых устройств. Поддерживаются диапазоны:
-    - `192.168.1.10` (один адрес)
-    - `192.168.1.10-20` (диапазон адресов)
-    - `10.8.0.50, 10.8.0.55-60` (список через запятую)
-3. **Запуск**: Нажмите **Start Mass Flash**.
+1. **Settings / Telegram**: 
+   - Click **⚙️ Settings** to configure your Telegram Bot Token and Chat ID.
+   - These settings are **specific to your user account**.
+2. **Flash Parameters**: 
+   - **Username/Password**: Enter the SSH credentials for the target devices (default: `user` / `admin`).
+   - **SSH Port**: Default is `2222` (for recent VSM2 versions) or `22`.
+3. **Targets**: 
+   - Enter IP addresses or ranges (e.g., `192.168.1.10-20`).
+4. **Start**: 
+   - Click **Start Mass Flash**.Logs will appear in real-time tabs.
 
-**Что происходит при запуске:**
+## Maintenance
 
-- Утилита подключается к каждому устройству.
-- Скачивает и запускает скрипт установки `setup.sh` из ветки `dev`.
-- Запускает режим **Auto-Cleanup** (`--flash-cleanup`):
-  - Если есть свежая прошивка: Устройство обновляется, очищается от временных файлов и **перезагружается**.
-  - Если прошивка уже актуальна: Устройство очищается и **не перезагружается**.
-  - В случае ошибки: Выводится лог, очистка не выполняется (для отладки).
-
-### 4. Настройка Telegram (Опционально)
-
-В интерфейсе нажмите кнопку **⚙️ Settings**.
-Вы можете указать `Bot Token` и `Chat ID`. Эти настройки сохраняются локально на сервере Mass Flasher.
-Если настройки заданы, устройства будут пытаться отправить отчет об обновлении в ваш Telegram чат.
-
-## Полезные команды
-
-Посмотреть логи работающего контейнера:
-
+**View Logs**:
 ```bash
-docker logs -f mass_flasher_app
+docker compose logs -f
 ```
 
-Перезапустить/Обновить контейнер:
-
+**Restart/Update**:
 ```bash
-git pull origin dev
-./run_docker.sh
+git pull origin main
+docker compose up -d --build
 ```
 
-Остановить контейнер вручную:
-
+**Stop**:
 ```bash
-docker stop mass_flasher_app
-docker rm mass_flasher_app
+docker compose down
 ```
