@@ -17,6 +17,7 @@ echo "Starting Mass Flasher on http://localhost:5000"
 docker run -d \
   --network host \
   -v "$(pwd)/config.json:/app/config.json" \
+  -v "$(pwd)/docker_resolv.conf:/etc/resolv.conf" \
   --name mass_flasher_app \
   --restart unless-stopped \
   mass-flasher

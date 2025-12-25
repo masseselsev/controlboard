@@ -407,6 +407,8 @@
             // Matches ESC [ ... letter where letter is NOT 'm'
             // Common codes: A (up), B (down), C (fwd), D (back), H (home), J (clear screen), K (clear line), r (scroll region)
             text = text.replace(/\x1b\[[\d;]*[A-LNP-Za-z]/g, '');
+            // Strip Save Cursor (ESC 7) and Restore Cursor (ESC 8)
+            text = text.replace(/\x1b[78]/g, '');
 
             // 2. Process Colors (ending in 'm')
             return text.replace(/\x1b\[[\d;]*m/g, (match) => {
