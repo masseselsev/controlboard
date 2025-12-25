@@ -7,3 +7,9 @@ env/
 .DS_Store
 mass_flasher/data/*
 !mass_flasher/data/.gitkeep
+
+# Agent working files
+task.md
+walkthrough.md
+implementation_plan.md
+analysis_report.md
