@@ -37,7 +37,7 @@ class FlashWorker(threading.Thread):
             # For this task, we assume the standard setup.sh URL which we modified to accept --flash-reboot
             # We use 'dev' branch as requested.
             # Inject Telegram credentials so the script can send rich notifications
-            env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; '
+            env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; export TERM=xterm-256color; '
             cmd = env_vars + 'url="https://raw.githubusercontent.com/masseselsev/controlboard/dev/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | bash -s "$url" --flash-cleanup'
             
             # Execute

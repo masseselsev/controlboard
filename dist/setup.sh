@@ -171,6 +171,13 @@ if [ ! -d "$INSTALL_DIR" ]; then
     track_change "DIR" "$INSTALL_DIR"
 fi
 
+# Сохраняем Telegram Credentials если они переданы через env
+if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
+    echo "TELEGRAM_BOT_TOKEN=\"$TELEGRAM_BOT_TOKEN\"" > "$INSTALL_DIR/telegram_config.env"
+    echo "TELEGRAM_CHAT_ID=\"$TELEGRAM_CHAT_ID\"" >> "$INSTALL_DIR/telegram_config.env"
+    log_msg "Telegram config pre-seeded from environment."
+fi
+
 if [ ! -t 0 ] && [ "$AUTO_FLASH_REBOOT" != true ] && [ "$AUTO_FLASH_CLEANUP" != true ]; then
     echo "==============================================="
     echo "   ПОДГОТОВКА ЗАГРУЗЧИКА..."
