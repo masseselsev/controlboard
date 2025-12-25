@@ -2,20 +2,19 @@
 
 ## Prerequisites
 
-- Generic Linux System (or Raspberry Pi)
-- Docker & Docker Compose installed
-- Git installed
-- Controlboard repository cloned
+- Generic Linux System (Ubuntu, Debian, Raspberry Pi OS, etc.)
+- **Docker** & **Docker Compose** installed
+- **Git** installed
 
-## Quick Start (Docker Compose)
+## Quick Start (Fresh Install)
 
-1. **Clone/Update Repository**:
-   Navigate to the repository and pull the latest changes from the `main` branch.
+1. **Clone Repository**:
+   Open a terminal and clone the repository.
 
    ```bash
-   cd ~/controlboard
-   git checkout main
-   git pull origin main
+   cd ~
+   git clone https://github.com/masseselsev/controlboard.git
+   cd controlboard
    ```
 
 2. **Navigate to Mass Flasher Directory**:
@@ -37,63 +36,74 @@
 
    This will:
    - Build the `mass-flasher` Docker image.
-   - Create a persistent volume in `./data/` for storing users and configurations.
-   - Start the container `mass_flasher_app` on host network (or mapping port 5000).
+   - Create a persistent volume locally in `./data/`.
+   - Start the container `mass_flasher_app`.
 
 4. **Access the Interface**:
    Open a web browser and navigate to:
-   **`http://<YOUR_IP>:5000`** (e.g. http://localhost:5000)
+   **`http://<YOUR_DEVICE_IP>:5000`** 
+   (e.g., `http://localhost:5000` or `http://192.168.1.50:5000`)
+
+---
+
+## Updating an Existing Installation
+
+If you already have the repository cloned:
+
+```bash
+cd ~/controlboard
+git checkout main
+git pull origin main
+cd mass_flasher
+docker compose up -d --build
+```
+
+---
 
 ## Authentication & Users
 
-The system now supports user authentication.
+The system uses a local user database.
 
 1. **First Login / Admin Setup**:
    - Upon first access, you will be redirected to the **Login Page**.
-   - Enter your desired **Username** (e.g., `admin`) and **Password**.
+   - Enter your desired **Admin Username** (e.g., `admin`) and **Password**.
    - Click **Login**.
-   - Since no users exist initially, the first login attempt with the username `admin` will **automatically create the Admin account** with the password you provided.
+   - **Important**: The first user to successfully login becomes the Admin (account is created automatically).
 
 2. **Registering Additional Users**:
    - On the login page, enter a new Username and Password.
    - Click **Register**.
-   - Alternatively, logged-in users can just share creds, or you can manage `data/users.json` manually if needed.
+   - (Note: Currently registration is open; in a secured environment, you may want to restrict this or manage `data/users.json` manually).
 
 3. **Logout**:
-   - Use the **Logout** button in the header to end your session.
+   - Use the **Logout** button in the header.
 
 ## Data Persistence
 
-Configuration and user data are stored in the `./data` directory within `mass_flasher`. This directory is mounted into the container.
-- `data/users.json`: Stores user credentials (hashed).
-- `data/settings_<username>.json`: Stores per-user settings (e.g., Telegram tokens).
+Configuration and user data are stored in the `./data` directory within `mass_flasher`.
+- `data/users.json`: User credentials.
+- `data/settings_<username>.json`: Per-user settings (Telegram tokens).
 
-**Backups:** You only need to backup the `data/` folder.
+**Backups:** To backup your installation, simply copy the `mass_flasher/data/` folder.
 
 ## Usage
 
 1. **Settings / Telegram**: 
-   - Click **⚙️ Settings** to configure your Telegram Bot Token and Chat ID.
-   - These settings are **specific to your user account**.
+   - Click **⚙️ Settings** to configure your **Telegram Bot Token** and **Chat ID**.
+   - These settings are personal to your user account.
 2. **Flash Parameters**: 
-   - **Username/Password**: Enter the SSH credentials for the target devices (default: `user` / `admin`).
-   - **SSH Port**: Default is `2222` (for recent VSM2 versions) or `22`.
+   - **Username/Password**: SSH credentials for the *target Raspberry Pi devices* (default: `user` / `admin`).
+   - **SSH Port**: Default is `2222` (VSM2) or `22`.
 3. **Targets**: 
    - Enter IP addresses or ranges (e.g., `192.168.1.10-20`).
 4. **Start**: 
-   - Click **Start Mass Flash**.Logs will appear in real-time tabs.
+   - Click **Start Mass Flash**.
 
 ## Maintenance
 
 **View Logs**:
 ```bash
 docker compose logs -f
-```
-
-**Restart/Update**:
-```bash
-git pull origin main
-docker compose up -d --build
 ```
 
 **Stop**:
