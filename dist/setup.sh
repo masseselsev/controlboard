@@ -71,7 +71,7 @@ SCRIPT_VERSION="33"
 GITHUB_USER="masseselsev"
 GITHUB_REPO="controlboard"
 REPO_FOLDER="dist"
-BRANCH="main"
+BRANCH="dev"
 INSTALL_DIR="$HOME/controlboard"
 # ================================================
 
@@ -209,7 +209,18 @@ if ! groups | grep -q "dialout"; then
     log_msg "User $USER added to group dialout"
     echo "[OK] Права добавлены. Перезапуск..."
     sleep 1
-    exec sg dialout -c "CB_SETUP_RUNNING=true /bin/bash $0 $1"
+    
+    # Explicitly resolve script path for restart, handling cases where $0 is bash
+    SCRIPT_PATH="$0"
+    if [[ "$SCRIPT_PATH" == *"/bash" ]] || [[ "$SCRIPT_PATH" == "bash" ]]; then
+       if [ -f "$INSTALL_DIR/setup.sh" ]; then
+           SCRIPT_PATH="$INSTALL_DIR/setup.sh"
+       elif [ -f "./setup.sh" ]; then
+           SCRIPT_PATH="./setup.sh"
+       fi
+    fi
+
+    exec sg dialout -c "CB_SETUP_RUNNING=true /bin/bash \"$SCRIPT_PATH\" $1"
 fi
 echo "[OK] Права доступа подтверждены."
 
