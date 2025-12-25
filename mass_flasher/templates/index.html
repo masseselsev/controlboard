@@ -388,13 +388,38 @@
             activeTab = safeIp;
         }
 
+        function ansiToHtml(text) {
+            // Basic support for ANSI colors common in linux scripts
+            const colors = {
+                '0': null,
+                '1': 'font-weight: bold',
+                '30': 'color: black',
+                '31': 'color: #ff5555', // Red
+                '32': 'color: #50fa7b', // Green
+                '33': 'color: #f1fa8c', // Yellow
+                '34': 'color: #bd93f9', // Blue
+                '35': 'color: #ff79c6', // Magenta
+                '36': 'color: #8be9fd', // Cyan
+                '37': 'color: white'
+            };
+
+            return text.replace(/\033\[([\d;]*)m/g, (match, codes) => {
+                if (!codes || codes === '0') return '</span>';
+                
+                const style = codes.split(';').map(code => colors[code]).filter(Boolean).join(';');
+                if (style) return `<span style="${style}">`;
+                return '';
+            }) + '</span>'.repeat((text.match(/<span/g) || []).length - (text.match(/<\/span>/g) || []).length);
+        }
+
         function appendLog(safeIp, msg) {
             safeIp = safeIp.replace(/\./g, '-');
             const container = document.getElementById(`log-${safeIp}`);
             if (container) {
                 const div = document.createElement('div');
                 div.className = 'log-entry';
-                div.textContent = msg;
+                // Use formatted HTML with colors
+                div.innerHTML = ansiToHtml(msg); 
                 container.appendChild(div);
 
                 // Auto-scroll only if we are viewing this tab? Or always?

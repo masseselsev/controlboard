@@ -18,12 +18,8 @@ class FlashWorker(threading.Thread):
         self.status = "FAILURE" # SUCCESS, SKIPPED, FAILURE
 
     def log(self, message):
-        # Strip ANSI escape codes
-        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-        clean_message = ansi_escape.sub('', message)
-        
         timestamp = time.strftime("%H:%M:%S")
-        formatted = f"[{timestamp}] [{self.ip}] {clean_message}"
+        formatted = f"[{timestamp}] [{self.ip}] {message}"
         self.log_queue.put(formatted)
 
     def run(self):
