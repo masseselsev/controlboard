@@ -281,7 +281,27 @@ VENV_PKG="python${PY_VER}-venv"
 echo "    Обновление списков пакетов (apt update)..."
 sudo apt update
 
-# ... (omitted)
+echo "    Проверка пакета $VENV_PKG..."
+if ! dpkg -s "$VENV_PKG" 2>/dev/null | grep -q "Status: install ok installed"; then
+    echo "    Установка $VENV_PKG (может занять время)..."
+    if ! sudo apt install -y "$VENV_PKG"; then
+        echo "[CRITICAL ERROR] Не удалось установить $VENV_PKG."
+        echo "Попробуйте выполнить вручную: sudo apt update && sudo apt install -y $VENV_PKG"
+        log_msg "ERROR: Failed to install $VENV_PKG"
+        exit 1
+    fi
+    track_change "PACKAGE" "$VENV_PKG"
+    log_msg "Installed package $VENV_PKG"
+else
+    echo "    Пакет $VENV_PKG уже установлен."
+fi
+
+if [ -d "env" ]; then
+    if [ ! -f "env/bin/activate" ]; then
+        echo "    Обнаружено поврежденное окружение. Пересоздание..."
+        rm -rf env
+    fi
+fi
 
 echo "    Создание виртуального окружения (env)..."
 if ! python3 -m venv env; then
