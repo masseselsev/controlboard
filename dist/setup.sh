@@ -279,46 +279,24 @@ PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_i
 VENV_PKG="python${PY_VER}-venv"
 
 echo "    Обновление списков пакетов (apt update)..."
-sudo apt update > /dev/null 2>&1
+sudo apt update
 
-echo "    Проверка пакета $VENV_PKG..."
-if ! dpkg -s "$VENV_PKG" 2>/dev/null | grep -q "Status: install ok installed"; then
-    echo "    Установка $VENV_PKG (может занять время)..."
-    if ! sudo apt install -y "$VENV_PKG"; then
-        echo "[CRITICAL ERROR] Не удалось установить $VENV_PKG."
-        echo "Попробуйте выполнить вручную: sudo apt update && sudo apt install -y $VENV_PKG"
-        log_msg "ERROR: Failed to install $VENV_PKG"
-        exit 1
-    fi
-    track_change "PACKAGE" "$VENV_PKG"
-    log_msg "Installed package $VENV_PKG"
-else
-    echo "    Пакет $VENV_PKG уже установлен."
-fi
+# ... (omitted)
 
-if [ -d "env" ]; then
-    if [ ! -f "env/bin/activate" ]; then
-        echo "    Обнаружено поврежденное окружение. Пересоздание..."
-        rm -rf env
-    fi
-fi
-
-if [ ! -d "env" ]; then
-    echo "    Создание виртуального окружения (env)..."
+echo "    Создание виртуального окружения (env)..."
+if ! python3 -m venv env; then
+    echo "[WARN] Ошибка при создании venv. Возможна проблема с пакетом."
+    echo "    Попытка переустановки $VENV_PKG..."
+    sudo apt install -y --reinstall "$VENV_PKG"
+    
     if ! python3 -m venv env; then
-        echo "[WARN] Ошибка при создании venv. Возможна проблема с пакетом."
-        echo "    Попытка переустановки $VENV_PKG..."
-        sudo apt install -y --reinstall "$VENV_PKG"
-        
-        if ! python3 -m venv env; then
-            echo "[CRITICAL ERROR] Не удалось создать venv даже после переустановки."
-            exit 1
-        fi
+        echo "[CRITICAL ERROR] Не удалось создать venv даже после переустановки."
+        exit 1
     fi
 fi
 
 source env/bin/activate
-pip install pyserial > /dev/null
+pip install pyserial requests
 
 echo "[OK] Система готова к работе."
 
