@@ -406,7 +406,8 @@
             // 1. Strip cursor/scroll/clear control sequences (garbage in logs)
             // Matches ESC [ ... letter where letter is NOT 'm'
             // Common codes: A (up), B (down), C (fwd), D (back), H (home), J (clear screen), K (clear line), r (scroll region)
-            text = text.replace(/\x1b\[[\d;]*[A-LNP-Za-z]/g, '');
+            // We EXPLICITLY exclude 'm' (colors) from this strip.
+            text = text.replace(/\x1b\[[\d;]*[A-Za-ln-z]/g, '');
             // Strip Save Cursor (ESC 7) and Restore Cursor (ESC 8)
             text = text.replace(/\x1b[78]/g, '');
 
