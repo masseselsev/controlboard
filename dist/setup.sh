@@ -262,7 +262,12 @@ for url in $FILES_LIST; do
     download_file "$url?t=$(date +%s)" "$INSTALL_DIR"
 done
 
-chmod +x autoflash.sh
+# Удаляем Windows CRLF переносы строк из скачанных файлов
+echo "[INFO] Очистка файлов от CRLF..."
+# Try to use sed to strip \r. Using || true to ignore errors if no files match or binary files issue (though unlikely for sh/py)
+sed -i 's/\r$//' "$INSTALL_DIR"/*.sh "$INSTALL_DIR"/*.py 2>/dev/null || true
+
+chmod +x autoflash.sh dev_cleanup.sh setup.sh
 chmod +x setup.sh
 chmod +x dev_cleanup.sh
 

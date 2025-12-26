@@ -8,10 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY mass_flasher/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY mass_flasher/ .
+COPY dist/ /app/dist
 
 # Create volume mount point for config
 # Create volume mount point for data (config)

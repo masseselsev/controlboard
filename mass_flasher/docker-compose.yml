@@ -2,11 +2,16 @@ version: '3.8'
 
 services:
   mass-flasher:
-    build: .
+    build:
+      context: ..
+      dockerfile: mass_flasher/Dockerfile
     container_name: mass_flasher_app
+    privileged: true
+    user: root
     network_mode: "host"
     restart: unless-stopped
     volumes:
       - ./data:/app/data
+      - ../dist:/app/dist
     environment:
       - PYTHONUNBUFFERED=1
