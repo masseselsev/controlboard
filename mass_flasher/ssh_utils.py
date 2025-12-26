@@ -16,6 +16,7 @@ class FlashWorker(threading.Thread):
         self.tg_token = tg_token
         self.tg_chat_id = tg_chat_id
         self.status = "FAILURE" # SUCCESS, SKIPPED, FAILURE
+        self.last_log_line = ""
 
     def log(self, message):
         timestamp = time.strftime("%H:%M:%S")
@@ -65,8 +66,14 @@ class FlashWorker(threading.Thread):
                         split_idx = int(min(idx_n, idx_r))
                         
                         line = buffer[:split_idx]
-                        if line.strip():
-                            self.log(line.strip())
+                        stripped_line = line.strip()
+                        
+                        if stripped_line:
+                            # Deduplicate identical consecutive lines (e.g. progress bars)
+                            # We only dedup if checking exact match, usually for progress
+                            if stripped_line != self.last_log_line:
+                                self.log(stripped_line)
+                                self.last_log_line = stripped_line
                         
                         buffer = buffer[split_idx+1:]
                 else:
@@ -74,7 +81,9 @@ class FlashWorker(threading.Thread):
             
             # Log any remaining buffer
             if buffer.strip():
-                self.log(buffer.strip())
+                stripped_line = buffer.strip()
+                if stripped_line != self.last_log_line:
+                    self.log(stripped_line)
             
             exit_status = stdout.channel.recv_exit_status()
             

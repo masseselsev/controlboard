@@ -68,7 +68,8 @@ def save_user_config(username, config):
 
 def send_telegram_notification(ip, status, token, chat_id):
     # Suppress redundant notification if skipped (device already sent one)
-    if status == "SKIPPED":
+    # User requested ONLY errors from web app. Success/Skipped are handled by script.
+    if status in ["SUCCESS", "SKIPPED"]:
         return
 
     if not token or not chat_id:

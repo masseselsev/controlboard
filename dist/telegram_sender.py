@@ -3,7 +3,25 @@ import sys
 import requests
 import argparse
 
-SCRIPT_VERSION = "1"
+import subprocess
+import re
+
+SCRIPT_VERSION = "2"
+
+def get_vpn_ip():
+    try:
+        # User requested IP from 'ip a' matching 10.8.0.*
+        cmd = "ip -4 addr show"
+        result = subprocess.check_output(cmd, shell=True).decode('utf-8')
+        
+        # Look for 10.8.0.x
+        # inet 10.8.0.93/24 scope global tun0
+        match = re.search(r'inet (10\.8\.0\.\d+)', result)
+        if match:
+            return match.group(1)
+    except Exception as e:
+        return f"Unknown (Error: {e})"
+    return "Unknown"
 
 def send_telegram_message(message):
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -13,10 +31,14 @@ def send_telegram_message(message):
         print("[INFO] Telegram credentials not found in environment. Skipping notification.")
         return
 
+    # Append IP Address
+    vpn_ip = get_vpn_ip()
+    final_message = f"{message}\nVPN IP: {vpn_ip}"
+
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
         "chat_id": chat_id,
-        "text": message
+        "text": final_message
     }
 
     try:

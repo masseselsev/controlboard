@@ -506,14 +506,38 @@
             safeIp = safeIp.replace(/\./g, '-');
             const container = document.getElementById(`log-${safeIp}`);
             if (container) {
-                const div = document.createElement('div');
-                div.className = 'log-entry';
-                // Use formatted HTML with colors
-                div.innerHTML = ansiToHtml(msg);
-                container.appendChild(div);
+                const htmlContent = ansiToHtml(msg);
 
-                // Auto-scroll only if we are viewing this tab? Or always?
-                // Usually convenient to always auto-scroll
+                // Smart Log Updating: prevent spam from progress bars
+                // We check known progress patterns.
+                const patterns = [
+                    "Flash memory writing progress",
+                    "Reading package lists",
+                    "Building dependency tree"
+                ];
+
+                let replaced = false;
+                const lastEl = container.lastElementChild;
+
+                if (lastEl) {
+                    const txt = lastEl.textContent;
+                    // check if current msg AND last msg match a pattern
+                    for (const pat of patterns) {
+                        if (msg.includes(pat) && txt.includes(pat)) {
+                            lastEl.innerHTML = htmlContent;
+                            replaced = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!replaced) {
+                    const div = document.createElement('div');
+                    div.className = 'log-entry';
+                    div.innerHTML = htmlContent;
+                    container.appendChild(div);
+                }
+
                 container.scrollTop = container.scrollHeight;
             }
         }
