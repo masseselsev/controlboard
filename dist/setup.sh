@@ -233,11 +233,11 @@ if ! groups | grep -q "dialout"; then
     fi
 
     # Pass Telegram vars explicitly to survive 'sg' environment reset
-    ENV_STR=""
+    CMD="CB_SETUP_RUNNING=true /bin/bash '$SCRIPT_PATH'"
     if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-        ENV_STR="export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN'; export TELEGRAM_CHAT_ID='$TELEGRAM_CHAT_ID';"
+        CMD="export TELEGRAM_BOT_TOKEN='$TELEGRAM_BOT_TOKEN'; export TELEGRAM_CHAT_ID='$TELEGRAM_CHAT_ID'; $CMD"
     fi
-    exec sg dialout -c "$ENV_STR CB_SETUP_RUNNING=true /bin/bash \"$SCRIPT_PATH\" \"$@\""
+    exec sg dialout -c "$CMD"
 fi
 echo -e "[${GREEN}OK${NC}] Права доступа подтверждены."
 
