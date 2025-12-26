@@ -133,14 +133,9 @@ if [ -n "$CURRENT_FW" ] && [ "$FIRM_VERSION" == "$CURRENT_FW" ]; then
     fi
     fi
     
-    # Получение IP (10.8.x.x)
-    IP_ADDR=$(hostname -I 2>/dev/null | grep -o '10\.8\.[0-9.]*' | awk '{print $1}')
-    [ -z "$IP_ADDR" ] && IP_ADDR="Не найден (10.8.*)"
-
     TS=$(date "+%d.%m.%Y, %H:%M")
     MSG="ℹ️ Прошивка уже актуальна!
 Устройство: $(hostname)
-IP: $IP_ADDR
 Версия: $FIRM_VERSION (установлена)
 Дата проверки: $TS
 Обновление не требуется."
