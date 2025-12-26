@@ -66,7 +66,7 @@ def save_user_config(username, config):
 
 # --- NOTIFICATIONS ---
 
-def send_telegram_notification(ip, status, token, chat_id):
+def send_telegram_notification(ip, status, token, chat_id, error_detail=None):
     # Suppress redundant notification if skipped (device already sent one)
     # User requested ONLY errors from web app. Success/Skipped are handled by script.
     if status in ["SUCCESS", "SKIPPED"]:
@@ -78,12 +78,22 @@ def send_telegram_notification(ip, status, token, chat_id):
 
     success = (status == "SUCCESS")
     status_icon = "✅" if success else "❌"
-    status_text = status
     
-    message = f"{status_icon} <b>Mass Flasher Report</b>\n\n" \
-              f"<b>Target:</b> {ip}\n" \
-              f"<b>Status:</b> {status_text}\n" \
-              f"<b>Action:</b> Firmware Update & Reboot"
+    status_map = {
+        "SUCCESS": "УСПЕХ",
+        "FAILURE": "СБОЙ",
+        "SKIPPED": "ПРОПУЩЕНО"
+    }
+    status_text = status_map.get(status, status)
+    
+    message = f"{status_icon} <b>Отчет Mass Flasher</b>\n\n" \
+              f"<b>Устройство:</b> {ip}\n" \
+              f"<b>Статус:</b> {status_text}\n"
+
+    if error_detail:
+        message += f"<b>Ошибка:</b> {error_detail}\n"
+
+    message += f"<b>Действие:</b> Обновление прошивки и перезагрузка"
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
@@ -157,8 +167,17 @@ def settings():
     username = session['user']
     if request.method == 'POST':
         config = load_user_config(username)
-        config['telegram_token'] = request.form.get('telegram_token')
-        config['telegram_chat_id'] = request.form.get('telegram_chat_id')
+        
+        if request.is_json:
+            # Merge JSON data (e.g. quick_actions)
+            config.update(request.json)
+        else:
+            # Handle Form Data (Legacy/Telegram Settings Modal)
+            if request.form.get('telegram_token') is not None:
+                config['telegram_token'] = request.form.get('telegram_token')
+            if request.form.get('telegram_chat_id') is not None:
+                config['telegram_chat_id'] = request.form.get('telegram_chat_id')
+            
         save_user_config(username, config)
         return jsonify({"status": "saved"})
     else:
@@ -189,8 +208,8 @@ def flash_devices():
     tg_chat_id = config.get("telegram_chat_id", "")
 
     # Create a closure to capture token/chat_id for THIS batch
-    def notification_callback(ip, status):
-        send_telegram_notification(ip, status, tg_token, tg_chat_id)
+    def notification_callback(ip, status, error_detail=None):
+        send_telegram_notification(ip, status, tg_token, tg_chat_id, error_detail)
 
     for ip in ips:
         # Pass callback
@@ -291,10 +310,12 @@ def console_connect():
         del CONSOLE_SESSIONS[username]
 
     import paramiko
+    import time
+
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        ssh.connect(target_ip, port=ssh_port, username=ssh_user, password=ssh_pass, timeout=5)
+        ssh.connect(target_ip, port=ssh_port, username=ssh_user, password=ssh_pass, timeout=15)
 
         # 1. Check/Deploy Tools
         # Check if ~/controlboard/app.py exists
@@ -313,7 +334,14 @@ def console_connect():
             # We are inside the connect request, we can't stream yet. 
             # We'll just do it and return result log.)
             
+            # Send status update via SSE for real-time feedback
             boot_logs = []
+            def log_boot(msg):
+                boot_logs.append(msg)
+                # Stream to frontend via SSE
+                timestamp = time.strftime("%H:%M:%S")
+                log_queue.put(f"[{timestamp}] [{target_ip}] {msg}")
+
             sftp = ssh.open_sftp()
             try:
                 ssh.exec_command("mkdir -p ~/controlboard")
@@ -335,35 +363,54 @@ def console_connect():
                 venv_status = stdout.read().decode().strip()
                 
                 if venv_status == 'MISSING':
-                    boot_logs.append("[System] Creating virtual environment (env)...")
+                    log_boot("[System] Creating virtual environment (env)...")
                     # Create venv
                     # Try to create. If it fails, install python3-venv
                     _, stdout, stderr = ssh.exec_command("cd ~/controlboard && python3 -m venv env")
                     exit_code = stdout.channel.recv_exit_status()
+                    
                     if exit_code != 0:
                         err_out = stderr.read().decode().strip()
-                        boot_logs.append(f"[ERROR] venv creation failed: {err_out}. Installing python3-venv...")
+                        log_boot(f"[ERROR] venv creation failed: {err_out}. Installing python3-venv...")
                         # Failed, likely missing venv package
                         # We use sudo non-interactive
                         install_cmd = f"echo '{ssh_pass}' | sudo -S apt-get update && echo '{ssh_pass}' | sudo -S apt-get install -y python3-venv"
                         _, i_out, i_err = ssh.exec_command(install_cmd)
                         result_log = i_out.read().decode() + i_err.read().decode()
-                        boot_logs.append(f"[System] Setup log: {result_log[:200]}...") # truncate
+                        log_boot(f"[System] Setup log: {result_log[:200]}...") # truncate
                         
                         # Retry create
-                        _, stdout, _ = ssh.exec_command("cd ~/controlboard && python3 -m venv env")
-                        
+                        _, stdout, stderr = ssh.exec_command("cd ~/controlboard && python3 -m venv env")
+                        exit_code = stdout.channel.recv_exit_status()
+                        if exit_code != 0:
+                            log_boot(f"[ERROR] venv retry failed: {stderr.read().decode().strip()}")
+                        else:
+                            log_boot("[System] venv created successfully.")
+                    
                     # Install deps
-                    boot_logs.append("[System] Installing dependencies (pyserial, requests)...")
+                    log_boot("[System] Installing dependencies (pyserial, requests)...")
                     _, i_out, i_err = ssh.exec_command("cd ~/controlboard && ./env/bin/pip install pyserial requests")
-                    boot_logs.append(i_out.read().decode().strip())
+                    
+                    pip_exit = i_out.channel.recv_exit_status()
+                    pip_out = i_out.read().decode().strip()
+                    pip_err = i_err.read().decode().strip()
+                    
+                    if pip_exit != 0:
+                        log_boot(f"[ERROR] pip install failed: {pip_out} {pip_err}")
+                    else:
+                         log_boot(f"[System] pip installed: {pip_out}")
                 else:
                     # Check deps
                     stdin, stdout, stderr = ssh.exec_command("~/controlboard/env/bin/python3 -c 'import serial; import requests' 2>/dev/null && echo 'OK' || echo 'MISSING'")
                     if stdout.read().decode().strip() == 'MISSING':
-                         boot_logs.append("[System] Installing missing dependencies...")
+                         log_boot("[System] Installing missing dependencies...")
                          _, i_out, i_err = ssh.exec_command("cd ~/controlboard && ./env/bin/pip install pyserial requests")
-                         boot_logs.append(i_out.read().decode().strip())
+                         pip_out = i_out.read().decode().strip()
+                         pip_err = i_err.read().decode().strip()
+                         if pip_err:
+                             log_boot(f"Output: {pip_out}\nErrors: {pip_err}")
+                         else:
+                             log_boot(pip_out)
                     
             except Exception as e:
                 return jsonify({"error": f"Bootstrap failed: {str(e)}"}), 500
@@ -501,9 +548,7 @@ def console_connect():
 
         init_msg = ""
         if status == 'MISSING':
-            init_msg += "[System] Bootstrapped new device (uploaded tools).\n"
-            if 'boot_logs' in locals() and boot_logs:
-                init_msg += "\n".join(boot_logs) + "\n"
+            init_msg += "[System] Bootstrap verification complete.\n"
             
         return jsonify({"status": "connected", "output": init_msg + scan_msg + clean_output})
 

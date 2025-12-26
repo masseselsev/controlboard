@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mass Flasher | VSM2 Control v2</title>
+    <title>VSM2 Flash&Control Utility</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -90,6 +90,67 @@
             color: var(--text-color);
         }
 
+        .console-btn {
+            width: auto;
+            margin-bottom: 0;
+            padding: 4px 8px;
+            font-size: 0.85em;
+            text-transform: none;
+            /* prevent uppercase if set elsewhere */
+        }
+
+        @keyframes shake {
+            0% {
+                transform: translate(1px, 1px) rotate(0deg);
+            }
+
+            10% {
+                transform: translate(-1px, -2px) rotate(-1deg);
+            }
+
+            20% {
+                transform: translate(-3px, 0px) rotate(1deg);
+            }
+
+            30% {
+                transform: translate(3px, 2px) rotate(0deg);
+            }
+
+            40% {
+                transform: translate(1px, -1px) rotate(1deg);
+            }
+
+            50% {
+                transform: translate(-1px, 2px) rotate(-1deg);
+            }
+
+            60% {
+                transform: translate(-3px, 1px) rotate(0deg);
+            }
+
+            70% {
+                transform: translate(3px, 1px) rotate(-1deg);
+            }
+
+            80% {
+                transform: translate(-1px, -1px) rotate(1deg);
+            }
+
+            90% {
+                transform: translate(1px, 2px) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(1px, -2px) rotate(-1deg);
+            }
+        }
+
+        .delete-shake {
+            animation: shake 0.5s;
+            animation-iteration-count: infinite;
+            opacity: 0.8;
+        }
+
         /* Tabs Styles */
         .tabs-header {
             display: flex;
@@ -98,6 +159,24 @@
             margin-bottom: 0;
             border-bottom: 1px solid var(--border-color);
             padding-bottom: 5px;
+        }
+
+        /* Modal Checkbox Fix */
+        #qa-list div {
+            display: flex;
+            align-items: center;
+            padding: 2px 0;
+        }
+
+        #qa-list input {
+            width: auto !important;
+            margin: 0 10px 0 0 !important;
+            cursor: pointer;
+        }
+
+        #qa-list label {
+            margin-bottom: 0;
+            cursor: pointer;
         }
 
         .tab-btn {
@@ -225,7 +304,7 @@
     <div class="container">
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h1>Mass Flasher Utility</h1>
+                <h1>VSM2 Flash&Control Utility</h1>
                 <div style="display:flex; gap:10px; align-items:center;">
                     <span style="color:#888; font-size:0.9em;">User: <b>{{ user }}</b></span>
                     <button class="secondary" onclick="openSettings()" style="width:auto;">⚙️ Settings</button>
@@ -282,8 +361,9 @@
 
                 <!-- CONSOLE TAB -->
                 <div id="log-console" class="log-container"
-                    style="display:none; flex-direction:column; height:500px; padding:0;">
+                    style="display:none; flex-direction:column; height:75vh; padding:0;">
 
+                    <!-- Toolbar -->
                     <!-- Toolbar -->
                     <div
                         style="background:#252526; padding:10px; border-bottom:1px solid #333; display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
@@ -302,19 +382,30 @@
                             style="padding:5px 10px; width:auto;">🔌 Connect</button>
                         <span id="console-status"
                             style="margin-left:10px; font-size:0.8em; color:#666; font-weight:bold;">DISCONNECTED</span>
+                    </div>
 
-                        <div style="flex-grow:1;"></div>
-
-                        <!-- Quick Actions -->
-                        <div style="display: flex; gap: 5px; align-items: center;">
-                            <button class="console-btn" onclick="execConsole('read temp')"
-                                style="background:#e06c75; width: auto; min-width: 50px;">Ext Temp</button>
-                            <button class="console-btn" onclick="execConsole('read hum')"
-                                style="background:#98c379; color:#000; width: auto; min-width: 50px;">Hum</button>
-                            <button class="console-btn" onclick="execConsole('read ver')"
-                                style="background:#61afef; width: auto; min-width: 50px;">Ver</button>
-                            <button class="console-btn" onclick="execConsole('util CP2105_RST')"
-                                style="background:#c678dd; width: auto; min-width: 60px;">Reset USB</button>
+                    <!-- Quick Actions Row -->
+                    <div style="background:#202020; padding:0px 15px 3px 15px; border-bottom:1px solid #333;">
+                        <div
+                            style="font-size:0.75em; color:#aaa; margin-bottom:1px; margin-top:2px; display:flex; gap:10px; font-family:sans-serif; line-height:1;">
+                            <span style="display:flex; align-items:center; gap:4px;"><span
+                                    style="color:#e06c75">■</span> Read</span>
+                            <span style="display:flex; align-items:center; gap:4px;"><span
+                                    style="color:#d19a66">■</span> Write</span>
+                            <span style="display:flex; align-items:center; gap:4px;"><span
+                                    style="color:#98c379">■</span> Control</span>
+                            <span style="display:flex; align-items:center; gap:4px;"><span
+                                    style="color:#c678dd">■</span> Util</span>
+                        </div>
+                        <div style="display:flex; gap:5px; align-items:flex-start;">
+                            <div id="quick-actions-toolbar"
+                                style="display: flex; flex-wrap: wrap; gap: 5px; flex-grow:1;">
+                                <!-- Dynamic Content -->
+                            </div>
+                            <button class="console-btn" onclick="toggleDeleteMode()" title="Delete Buttons"
+                                style="background:#3e3e3e; color:#ccc; min-width: 30px;">🗑️</button>
+                            <button class="console-btn" onclick="openQuickActionsSetup()" title="Configure Buttons"
+                                style="background:#3e3e3e; color:#ccc; min-width: 30px;">+</button>
                         </div>
                     </div>
 
@@ -334,6 +425,21 @@
                         <datalist id="cmd-list"></datalist>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions Modal -->
+    <div id="quickActionsModal" class="modal">
+        <div class="modal-content">
+            <span class="close"
+                onclick="document.getElementById('quickActionsModal').style.display='none'">&times;</span>
+            <h2>Customize Quick Actions</h2>
+            <div id="qa-list"
+                style="max-height: 400px; overflow-y: auto; overflow-x: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+            </div>
+            <div style="margin-top: 15px; text-align: right;">
+                <button onclick="saveQuickActions()" class="main-btn">Save</button>
             </div>
         </div>
     </div>
@@ -380,6 +486,17 @@
                 }
                 if (ip !== 'SYSTEM') {
                     appendLog(ip, msg);
+
+                    // Also duplicate to Console if IP matches
+                    const consoleIp = document.getElementById('console-ip');
+                    if (consoleIp && consoleIp.value.trim() === ip) {
+                        // Strip IP/Time prefix for cleaner console look?
+                        // Msg format: [HH:MM:SS] [IP] Text
+                        // Console usually expects raw text.
+                        // Let's strip the prefix to make it look like local output
+                        const cleanMsg = msg.replace(/^\[.*?\] \[.*?\] /, '');
+                        appendConsole(cleanMsg, 'dim');
+                    }
                 }
             }
         };
@@ -898,6 +1015,158 @@
                 });
             }
         }
+        // Match local logic for scroll down
+        function scrollToBottom() {
+            const out = document.getElementById('console-output');
+            out.scrollTop = out.scrollHeight;
+        }
+
+        // --- QUICK ACTIONS ---
+        const DEFAULT_ACTIONS = ['read temp', 'read humidity', 'read version_request', 'util CP2105_RST'];
+        let quickActions = DEFAULT_ACTIONS;
+
+        function renderQuickActions() {
+            const container = document.getElementById('quick-actions-toolbar');
+            container.innerHTML = '';
+
+            // Define colors for types if needed
+            const typeColors = {
+                'read': '#e06c75',
+                'write': '#d19a66',
+                'control': '#98c379',
+                'test': '#61afef',
+                'util': '#c678dd'
+            };
+
+            quickActions.forEach(cmd => {
+                const btn = document.createElement('button');
+                btn.className = 'console-btn';
+                // Short naming logic
+                let label = cmd.split(' ')[1] || cmd;
+                if (cmd === 'util CP2105_RST') label = 'Reset USB';
+                if (cmd === 'read version_request') label = 'Ver';
+                if (cmd === 'read humidity') label = 'Hum';
+                if (cmd === 'read temp') label = 'Ext Temp';
+
+                btn.textContent = label;
+
+                const type = cmd.split(' ')[0];
+                btn.style.backgroundColor = typeColors[type] || '#5c6370';
+                // better contrast for light colors
+                if (['control', 'write'].includes(type) || label === 'Hum') btn.style.color = 'black';
+
+                if (isDeleteMode) {
+                    btn.style.border = '2px solid #ff4444';
+                    btn.classList.add('delete-shake');
+                    btn.title = "Click to DELETE";
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
+                        const newActions = quickActions.filter(x => x !== cmd);
+                        saveQuickActions(newActions);
+                    };
+                } else {
+                    btn.onclick = () => execConsole(cmd);
+                }
+
+                container.appendChild(btn);
+            });
+        }
+
+        function openQuickActionsSetup() {
+            const modal = document.getElementById('quickActionsModal');
+            const list = document.getElementById('qa-list');
+            list.innerHTML = 'Loading...';
+            modal.style.display = 'block';
+
+            // Fetch commands if not loaded
+            fetch('/api/console/commands')
+                .then(res => res.json())
+                .then(cmds => {
+                    // Sort: Selected first, then Alphabetical
+                    cmds.sort((a, b) => {
+                        const aSelected = quickActions.includes(a.value);
+                        const bSelected = quickActions.includes(b.value);
+                        if (aSelected && !bSelected) return -1;
+                        if (!aSelected && bSelected) return 1;
+                        return a.value.localeCompare(b.value);
+                    });
+
+                    list.innerHTML = '';
+                    cmds.forEach(c => {
+                        const div = document.createElement('div');
+                        const chk = document.createElement('input');
+                        chk.type = 'checkbox';
+                        chk.value = c.value;
+                        chk.checked = quickActions.includes(c.value);
+                        chk.id = 'qa-' + c.value.replace(/\s+/g, '-');
+
+                        const lbl = document.createElement('label');
+                        lbl.htmlFor = chk.id;
+                        lbl.textContent = c.value;
+                        lbl.style.marginLeft = '5px';
+                        lbl.title = c.desc;
+
+                        div.appendChild(chk);
+                        div.appendChild(lbl);
+                        list.appendChild(div);
+                    });
+                });
+        }
+
+        let isDeleteMode = false;
+
+        function toggleDeleteMode() {
+            isDeleteMode = !isDeleteMode;
+            renderQuickActions();
+        }
+
+        function saveQuickActions(customList) {
+            let newActions = [];
+
+            if (customList) {
+                newActions = customList;
+            } else {
+                const checkboxes = document.querySelectorAll('#qa-list input[type="checkbox"]');
+                checkboxes.forEach(chk => {
+                    if (chk.checked) newActions.push(chk.value);
+                });
+            }
+
+            quickActions = newActions;
+
+            // Save to Server
+            fetch('/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ quick_actions: quickActions })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'saved') {
+                        renderQuickActions();
+                        document.getElementById('quickActionsModal').style.display = 'none';
+                    } else {
+                        alert('Error saving settings');
+                    }
+                });
+        }
+
+        function loadQuickActionsFromServer() {
+            fetch('/settings')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.quick_actions && Array.isArray(data.quick_actions)) {
+                        quickActions = data.quick_actions;
+                    }
+                    renderQuickActions();
+                });
+        }
+
+        // Init
+        loadQuickActionsFromServer();
+
     </script>
 
 </body>

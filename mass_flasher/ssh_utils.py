@@ -98,12 +98,19 @@ class FlashWorker(threading.Thread):
                 self.status = "FAILURE"
                 
         except Exception as e:
-            self.log(f"ERROR: {str(e)}")
+            error_detail = str(e)
+            self.log(f"ERROR: {error_detail}")
             self.status = "FAILURE"
         finally:
             client.close()
             if self.completion_callback:
-                self.completion_callback(self.ip, self.status)
+                # Retrieve error_detail if it was set (only on exception)
+                err = locals().get('error_detail', None)
+                try:
+                     self.completion_callback(self.ip, self.status, err)
+                except TypeError:
+                     # Fallback for old signature if mismatched
+                     self.completion_callback(self.ip, self.status)
 
 def parse_ip_ranges(input_str):
     """

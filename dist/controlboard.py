@@ -243,7 +243,7 @@ def func_update(file_path, ser, date_boot: str, ver_f: str, date_f: str, ver_u: 
         if not b'Information about board:' in response:
             raise Exception(f"Unexpected response: {response.decode('utf-8')}")
         else:
-            print("> Sended 'run' to console.")
+            print("> Sent 'run' to console.")
 
         # если в этот момент в порт влетают какие-то байты, то мы их читаем, чтобы буфер освободился
         while ser.in_waiting:
@@ -251,7 +251,7 @@ def func_update(file_path, ser, date_boot: str, ver_f: str, date_f: str, ver_u: 
 
         send_to_console(b'yes', ser)        # МК присылает тех. информацию, а потом спрашивает записали ли мы заводскую прошивку, отвечаем 'yes'
         response = ser.read(100)
-        print("> Sended 'yes' to console.")   # Предыдущая команда прошла
+        print("> Sent 'yes' to console.")   # Предыдущая команда прошла
 
         if len(response) == 0:
             raise Exception('Device not responding!!!')
@@ -317,14 +317,14 @@ def func_update(file_path, ser, date_boot: str, ver_f: str, date_f: str, ver_u: 
                 if b'Faild Flash Tech Page!!!' in response:
                     raise Exception('Faild Flash Tech Page!!!')
                 
-                # print('> Reseting... Please, wait about 40 sec!!!')
+                # print('> Resetting... Please, wait about 40 sec!!!')
 
                 # если в этот момент в порт влетают какие-то байты, то мы их читаем, чтобы буфер освободился
                 while ser.in_waiting:
                     ser.read(20)
 
                 for i in range(20, -1, -1):  # от 20 до 0
-                    print(f'\r\033[33m> Reseting... Please, wait about {i} sec!!!\033[0m', end='', flush=True)
+                    print(f'\r\033[33m> Resetting... Please, wait about {i} sec!!!\033[0m', end='', flush=True)
                     time.sleep(1)
 
                 func_update(file_path, ser, date_boot, ver_f, date_f, ver_u, date_u, dev_addr)    # перезапуск апдейта в результате ветки первого старта
@@ -530,7 +530,7 @@ def func_control(cmd: str, ser):
     # Часто контроллер возвращает тот же набор, если команда принята.
     response = send_and_get(cmd_array, 8, ser)
     if raw_cmd not in response:
-        raise Exception(f'Some trubles with control!!! Compare send bytes and received')
+        raise Exception(f'Some issues with control!!! Compare send bytes and received')
     else:
         text_result = "========================================\n"
         text_result += f'          >>> Well done!!! <<<\n'
@@ -576,7 +576,7 @@ def func_read(cmd: str, ser):
         case "version_request":
             response = send_and_get(cmd_array, 7, ser)
             if b'\x04\x02\x20\x00' not in response: # было b'\x04\x02\x14\x00'
-                raise Exception(f'Not right version!!!')
+                raise Exception(f'Incorrect version!!!')
             else:
                 text_result = "========================================\n"
                 text_result += f'       >>> Version is right!!! <<<\n'
@@ -1426,7 +1426,7 @@ def func_write(cmd: str, ser, value: str | None = None):
             try:
                 number = int(m.group())                             # пробуем парсить до целого
             except ValueError:                                      # если не получилось
-                raise Exception('Some trubles with the number!!!')  # выдаем эксепшен
+                raise Exception('Some issues with the number!!!')  # выдаем эксепшен
             
             result_val  = 0x0   # переменная в которой мы формируем значение
             start_power = 0x0F  # начальная самая большая степень, чтобы начать с очень большого числа
@@ -1466,7 +1466,7 @@ def func_write(cmd: str, ser, value: str | None = None):
         #     try:
         #         number = int(m.group())                             # пробуем парсить до целого
         #     except ValueError:                                      # если не получилось
-        #         raise Exception('Some trubles with the number!!!')  # выдаем эксепшен
+        #         raise Exception('Some issues with the number!!!')  # выдаем эксепшен
             
         #     result_val  = 0x0   # переменная в которой мы формируем значение
 
@@ -1512,7 +1512,7 @@ def func_write(cmd: str, ser, value: str | None = None):
             if sending[:6] in response:
                 print(f'Command [{cmd}] done!')
             else:
-                raise Exception(f'Some troubles with {cmd}')
+                raise Exception(f'Some issues with {cmd}')
             
         ser.timeout = original_timeout
 
@@ -1667,7 +1667,7 @@ def func_write(cmd: str, ser, value: str | None = None):
             text_result += "========================================"
             print(f'{text_result}')
         else:
-            raise Exception(f'Some troubles with {cmd}!')
+            raise Exception(f'Some issues with {cmd}!')
 
     # pass # Заглушка
 
@@ -2594,7 +2594,7 @@ def func_utility(baudrate, serial_port, cmd: str):
             else:
                 print("[WARN] Unsupported platform")
         case "back":
-            print('> Firmware rollback to factory\nReseting MCU')
+            print('> Firmware rollback to factory\nResetting MCU')
 
             import serial
 
@@ -2828,7 +2828,7 @@ def main():
     parser_update.add_argument("-p", "--port", required=True, help="Serial port (e.g. COM3 or /dev/ttyUSB1)")
 
     # UTILITES
-    parser_util = subparsers.add_parser("util", parents=[common_parser], help="Special Utilites", formatter_class=RawTextHelpFormatter)
+    parser_util = subparsers.add_parser("util", parents=[common_parser], help="Special Utilities", formatter_class=RawTextHelpFormatter)
     util_choices = get_choices_with_help(commands.cmd_util_array)
     parser_util.add_argument(
         "cmd",
@@ -2885,7 +2885,7 @@ def main():
                 start_text += '========================================'
                 print(start_text)
                 if commands.TYPE.READ != commands.cmd_read_array[args.cmd]["type"]:
-                    raise Exception(f'Not right the command type! Command type is {commands.cmd_read_array[args.cmd]["type"]}')
+                    raise Exception(f'Incorrect command type! Command type is {commands.cmd_read_array[args.cmd]["type"]}')
                 read_with_serial(args.baudrate, serial_port, args.cmd)
                 # read_new(args.cmd, ser)
             case commands.TYPE.WRITE:
@@ -2895,7 +2895,7 @@ def main():
                 start_text += '========================================'
                 print(start_text)
                 if commands.TYPE.WRITE != commands.cmd_write_array[args.cmd]["type"]:
-                    raise Exception(f'Not right the command type! Command type is {commands.cmd_write_array[args.cmd]["type"]}')
+                    raise Exception(f'Incorrect command type! Command type is {commands.cmd_write_array[args.cmd]["type"]}')
                 write_with_serial(args.baudrate, serial_port, args.cmd, args.value)
                 # write_new(args.cmd, ser, args.value)
             case commands.TYPE.CONTROL:
@@ -2904,7 +2904,7 @@ def main():
                 start_text += '========================================'
                 print(start_text)
                 if commands.TYPE.CONTROL != commands.cmd_control_array[args.cmd]["type"]:
-                    raise Exception(f'Not right the command type! Command type is {commands.cmd_control_array[args.cmd]["type"]}')
+                    raise Exception(f'Incorrect command type! Command type is {commands.cmd_control_array[args.cmd]["type"]}')
                 control_with_serial(args.baudrate, serial_port, args.cmd)
                 # control_new(args.cmd, ser)
             case commands.TYPE.TEST:
@@ -2913,7 +2913,7 @@ def main():
                 start_text += '========================================'
                 print(start_text)
                 if commands.TYPE.TEST != commands.cmd_test_array[args.cmd]["type"]:
-                    raise Exception(f'Not right the command type! Command type is {commands.cmd_test_array[args.cmd]["type"]}')
+                    raise Exception(f'Incorrect command type! Command type is {commands.cmd_test_array[args.cmd]["type"]}')
                 test_with_serial(args.baudrate, serial_port, args.cmd)
                 # test(args.cmd, ser)
             case commands.TYPE.UPDATE:
@@ -2932,7 +2932,7 @@ def main():
                 # update_new(args.file, ser, args.date_b, args.ver_f, args.date_f, args.ver_u, args.date_u, args.address)
             case "my_bytes":
                 if not args.bytes:
-                    raise Exception('Not setted bytes. See: python controlboard.py my_bytes -h')
+                    raise Exception('Not set bytes. See: python controlboard.py my_bytes -h')
                 my_bytes_with_serial(args.baudrate, serial_port, args.bytes, args.crc)
                 # my_bytes(args.bytes, ser, args.crc)
             case commands.TYPE.UTIL:
@@ -2941,7 +2941,7 @@ def main():
                 start_text += '========================================'
                 print(start_text)
                 if commands.TYPE.UTIL != commands.cmd_util_array[args.cmd]["type"]:
-                    raise Exception(f'Not right the command type! Command type is {commands.cmd_util_array[args.cmd]["type"]}')
+                    raise Exception(f'Incorrect command type! Command type is {commands.cmd_util_array[args.cmd]["type"]}')
                 func_utility(args.baudrate, serial_port, args.cmd)
     except StopRecursion as e:
         print(f'\033[31m[ERROR] Recursion: {e}\033[0m')
