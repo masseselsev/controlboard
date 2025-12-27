@@ -12,7 +12,7 @@ COPY mass_flasher/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY mass_flasher/ .
-COPY dist/ /app/dist
+COPY controlboard/dist/ /app/controlboard/dist
 
 # Create volume mount point for config
 # Create volume mount point for data (config)

@@ -44,7 +44,7 @@ class FlashWorker(threading.Thread):
             env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; export TERM=xterm-256color; '
             # Fix CRLF issues by stripping \r with tr or sed
             # wget -q -O - "..." | tr -d '\r' | bash -s "..." --flash-cleanup
-            cmd = env_vars + 'url="https://raw.githubusercontent.com/masseselsev/controlboard/main/dist/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | tr -d \'\r\' | bash -s "$url" --flash-cleanup'
+            cmd = env_vars + 'url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | tr -d \'\r\' | bash -s "$url" --flash-cleanup'
             
             # Execute
             stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)

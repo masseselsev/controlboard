@@ -47,8 +47,8 @@ sudo_smart() {
 # --- ШАГ 1: ПОИСК ФАЙЛОВ ---
 echo -e "\n[1/7] Поиск необходимых файлов..."
 
-if [ ! -f "controlboard.py" ] || [ ! -f "commands.py" ]; then
-    echo "ОШИБКА: Не найдены файлы 'controlboard.py' или 'commands.py'."
+if [ ! -f "dist/controlboard.py" ] || [ ! -f "dist/commands.py" ]; then
+    echo "ОШИБКА: Не найдены файлы 'controlboard.py' или 'commands.py' в 'dist/'."
     exit 1
 fi
 echo "  [OK] Скрипты обнаружены."
@@ -190,7 +190,7 @@ set +e
 for port in /dev/ttyUSB{0,1,2,3,4}; do
     [ -e "$port" ] || continue
     echo -n "  - Проверка $port... "
-    OUTPUT=$(python controlboard.py read version_request -p "$port" 2>&1)
+    OUTPUT=$(python dist/controlboard.py read version_request -p "$port" 2>&1)
     if echo "$OUTPUT" | grep -q ">>> Version is right!!!"; then
         FOUND_PORT="$port"
         echo "OK! Контроллер найден."
@@ -222,11 +222,11 @@ do
     
     # 1. Заморозка
     echo "  -> Отправка команды заморозки (freez)..."
-    python controlboard.py control freez -p "$FOUND_PORT" || true
+    python dist/controlboard.py control freez -p "$FOUND_PORT" || true
     
     # 2. Сброс таймера в 120 (важно!)
     echo "  -> Сброс таймера в 120 сек (reset)..."
-    python controlboard.py control pc_wdt_reset -p "$FOUND_PORT" || true
+    python dist/controlboard.py control pc_wdt_reset -p "$FOUND_PORT" || true
     
     # 3. Ожидание
     echo "  -> Ожидание 3 сек..."
@@ -234,7 +234,7 @@ do
     
     # 4. Проверка
     echo "  -> Проверка состояния..."
-    WDT_OUTPUT=$(python controlboard.py read pc_wdt -p "$FOUND_PORT" 2>&1 || true)
+    WDT_OUTPUT=$(python dist/controlboard.py read pc_wdt -p "$FOUND_PORT" 2>&1 || true)
     
     if echo "$WDT_OUTPUT" | grep -q "120"; then
         echo "  [OK] УСПЕХ! Watchdog остановлен на 120 сек."
@@ -270,7 +270,7 @@ CURRENT_DATE=$(date +%d.%m.%y)
 echo "  - Дата прошивки: $CURRENT_DATE"
 
 echo -e "\n>>> НАЧАЛО ОБНОВЛЕНИЯ <<<"
-if ! python controlboard.py update -p "$FOUND_PORT" -f "$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE"; then
+if ! python dist/controlboard.py update -p "$FOUND_PORT" -f "$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE"; then
     echo "[КРИТИЧЕСКАЯ ОШИБКА] Сбой во время прошивки!"
     echo "[!] Попытка запуска служб..."
     sudo service edgeserver start

@@ -15,9 +15,11 @@ import readline  # Добавляет историю команд и навиг�
 
 # --- Импортируем словари команд ---
 try:
+    if 'dist' not in sys.path:
+        sys.path.append('dist')
     import commands
 except ImportError:
-    print("[ERROR] Не найден файл commands.py. Он должен быть в той же папке.")
+    print("[ERROR] Не найден файл commands.py. Он должен быть в папке dist/.")
     sys.exit(1)
 
 # --- Блок, скопированный из controlboard.py (Логика Modbus) ---
@@ -188,9 +190,11 @@ def send_and_get(
 # и будем вызывать его функции.
 
 try:
+    if 'dist' not in sys.path:
+        sys.path.append('dist')
     import controlboard
 except ImportError:
-    print("[ERROR] Не найден файл controlboard.py. Он должен быть в той же папке.")
+    print("[ERROR] Не найден файл controlboard.py. Он должен быть в папке dist/.")
     sys.exit(1)
 
 

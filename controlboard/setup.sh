@@ -41,7 +41,7 @@ NC='\033[0m'
                 echo -ne "\rПоиск контроллера... Попытка $i/$retries (опрос $port)... " >&2
                 
                 # Используем timeout и команду tech_data
-                OUTPUT=$(timeout 3s python controlboard.py read tech_data -p "$port" 2>&1 || true)
+                OUTPUT=$(timeout 3s python dist/controlboard.py read tech_data -p "$port" 2>&1 || true)
                 
                 # Ищем строку версии обновления. Формат: "  >>> Update Version: 1.1.0"
                 if echo "$OUTPUT" | grep -q "Update Version:"; then
@@ -428,7 +428,7 @@ check_fw_version() {
             echo -ne "\rПоиск контроллера... Попытка $i/$retries (опрос $port)... " >&2
             
             # Используем timeout и команду tech_data
-            OUTPUT=$(timeout 3s python controlboard.py read tech_data -p "$port" 2>&1 || true)
+            OUTPUT=$(timeout 3s python dist/controlboard.py read tech_data -p "$port" 2>&1 || true)
             
             # Ищем строку версии обновления. Формат: "  >>> Update Version: 1.1.0"
             if echo "$OUTPUT" | grep -q "Update Version:"; then

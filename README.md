@@ -12,7 +12,7 @@
 
 ```bash
 # Скачать и запустить установщик
-url="https://raw.githubusercontent.com/masseselsev/controlboard/main/dist/setup.sh?v=$(date +%s)"; wget -O - "$url" | bash -s "$url"
+url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; wget -O - "$url" | bash -s "$url"
 ```
 
 > **Важно:** Мы используем конструкцию `bash -s "$url"`, чтобы передать URL скрипта в качестве аргумента. Это необходимо для того, чтобы `setup.sh` мог корректно определить репозиторий и ветку для загрузки остальных файлов.
