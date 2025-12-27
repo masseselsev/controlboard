@@ -1,3 +1,1178 @@
+<<<<<<< HEAD
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VSM2 Flash&Control Utility</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #bb86fc;
+            --success-color: #03dac6;
+            --error-color: #cf6679;
+            --input-bg: #2d2d2d;
+            --border-color: #333;
+            --tab-active-bg: #333;
+            --tab-inactive-bg: #1a1a1a;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        h1,
+        h2 {
+            margin-top: 0;
+            color: var(--accent-color);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input,
+        textarea,
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: var(--input-bg);
+            color: var(--text-color);
+            box-sizing: border-box;
+            font-family: monospace;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: #000;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.secondary {
+            background-color: #444;
+            color: var(--text-color);
+        }
+
+        .console-btn {
+            width: auto;
+            margin-bottom: 0;
+            padding: 4px 8px;
+            font-size: 0.85em;
+            text-transform: none;
+            /* prevent uppercase if set elsewhere */
+        }
+
+        @keyframes shake {
+            0% {
+                transform: translate(1px, 1px) rotate(0deg);
+            }
+
+            10% {
+                transform: translate(-1px, -2px) rotate(-1deg);
+            }
+
+            20% {
+                transform: translate(-3px, 0px) rotate(1deg);
+            }
+
+            30% {
+                transform: translate(3px, 2px) rotate(0deg);
+            }
+
+            40% {
+                transform: translate(1px, -1px) rotate(1deg);
+            }
+
+            50% {
+                transform: translate(-1px, 2px) rotate(-1deg);
+            }
+
+            60% {
+                transform: translate(-3px, 1px) rotate(0deg);
+            }
+
+            70% {
+                transform: translate(3px, 1px) rotate(-1deg);
+            }
+
+            80% {
+                transform: translate(-1px, -1px) rotate(1deg);
+            }
+
+            90% {
+                transform: translate(1px, 2px) rotate(0deg);
+            }
+
+            100% {
+                transform: translate(1px, -2px) rotate(-1deg);
+            }
+        }
+
+        .delete-shake {
+            animation: shake 0.5s;
+            animation-iteration-count: infinite;
+            opacity: 0.8;
+        }
+
+        /* Tabs Styles */
+        .tabs-header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        /* Modal Checkbox Fix */
+        #qa-list div {
+            display: flex;
+            align-items: center;
+            padding: 2px 0;
+        }
+
+        #qa-list input {
+            width: auto !important;
+            margin: 0 10px 0 0 !important;
+            cursor: pointer;
+        }
+
+        #qa-list label {
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+
+        .tab-btn {
+            background-color: var(--tab-inactive-bg);
+            color: #888;
+            border: 1px solid var(--border-color);
+            border-radius: 4px 4px 0 0;
+            padding: 8px 10px 8px 15px;
+            cursor: pointer;
+            font-size: 0.9em;
+            flex-grow: 0;
+            width: auto;
+            margin-bottom: 0;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            background-color: #252525;
+        }
+
+        .tab-btn.active {
+            background-color: var(--tab-active-bg);
+            color: var(--accent-color);
+            border-bottom: 1px solid var(--tab-active-bg);
+            font-weight: bold;
+        }
+
+        .close-tab {
+            font-size: 1.1em;
+            line-height: 0.8;
+            color: #666;
+            border-radius: 50%;
+            padding: 0 4px;
+            transition: color 0.2s, background-color 0.2s;
+        }
+
+        .close-tab:hover {
+            color: var(--error-color);
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .log-container {
+            height: 400px;
+            overflow-y: auto;
+            background-color: #000;
+            border: 1px solid var(--border-color);
+            border-top: none;
+            /* Merges with tab */
+            padding: 10px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+            display: none;
+            /* Hidden by default */
+        }
+
+        .log-container.active {
+            display: block;
+        }
+
+        .log-entry {
+            margin-bottom: 2px;
+        }
+
+        .log-time {
+            color: #888;
+            margin-right: 10px;
+        }
+
+        .log-ip {
+            color: var(--success-color);
+            margin-right: 10px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding-top: 60px;
+        }
+
+        .modal-content {
+            background-color: var(--card-bg);
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+        }
+
+        /* Console Buttons Standardized */
+        .console-btn {
+            margin: 0;
+            padding: 3px 10px;
+            font-size: 0.75em;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: #1e1e1e;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+            transition: opacity 0.2s;
+        }
+
+        .console-btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h1>VSM2 Flash&Control Utility</h1>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <span style="color:#888; font-size:0.9em;">User: <b>{{ user }}</b></span>
+                    <button class="secondary" onclick="openSettings()" style="width:auto;">⚙️ Settings</button>
+                    <a href="/logout" style="text-decoration:none;"><button class="secondary"
+                            style="width:auto; background-color:#333;">Logout</button></a>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div>
+                    <label>Username</label>
+                    <input type="text" id="username" value="user">
+                </div>
+                <div>
+                    <label>Password</label>
+                    <input type="password" id="password" value="admin">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label>SSH Port</label>
+                    <input type="number" id="port" value="2222">
+                </div>
+            </div>
+
+            <label>IP Addresses / Ranges</label>
+            <div style="font-size: 0.8em; color: #888; margin-bottom: 5px;">
+                Supported formats: <code>192.168.1.10</code>, <code>192.168.1.10-20</code>. Comma separated.
+            </div>
+            <textarea id="ipInput" rows="4" placeholder="192.168.0.10, 192.168.0.20-30, 10.8.0.5"></textarea>
+
+            <button onclick="startFlash()">🚀 Start Mass Flash & Reboot</button>
+        </div>
+
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
+                <h2>Live Logs</h2>
+                <div>
+                    <button class="secondary" onclick="closeAllTabs()"
+                        style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px; margin-right:5px;">Close
+                        All Tabs</button>
+                    <button class="secondary" onclick="clearLogs()"
+                        style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px;">Clear Logs</button>
+                </div>
+            </div>
+
+            <!-- Tabs Header -->
+            <div id="tabs-header" class="tabs-header">
+                <button class="tab-btn active" onclick="switchTab('all')">All</button>
+                <button class="tab-btn" onclick="switchTab('console')" style="color: #61afef;">💻 Console</button>
+            </div>
+
+            <!-- Tabs Content -->
+            <div id="tabs-content">
+                <div id="log-all" class="log-container active">Initializing log stream...</div>
+
+                <!-- CONSOLE TAB -->
+                <div id="log-console" class="log-container"
+                    style="display:none; flex-direction:column; height:75vh; padding:0;">
+
+                    <!-- Toolbar -->
+                    <!-- Toolbar -->
+                    <div
+                        style="background:#252526; padding:10px; border-bottom:1px solid #333; display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
+                        <input type="text" id="console-ip" placeholder="Remote IP"
+                            style="width:120px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;">
+                        <input type="number" id="console-ssh-port" placeholder="SSH Port" value="2222"
+                            style="width:70px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;">
+                        <input type="text" id="console-user" placeholder="User" value="user"
+                            style="width:60px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;">
+                        <input type="password" id="console-pass" placeholder="Pass" value="admin"
+                            style="width:60px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;">
+                        <input type="text" id="console-port" placeholder="Dev Port (Empty=Auto)"
+                            style="width:140px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;"
+                            title="e.g /dev/ttyUSB0">
+                        <button class="secondary" id="console-connect-btn" onclick="connectConsole()"
+                            style="padding:5px 10px; width:auto;">🔌 Connect</button>
+                        <span id="console-status"
+                            style="margin-left:10px; font-size:0.8em; color:#666; font-weight:bold;">DISCONNECTED</span>
+                    </div>
+
+                    <!-- Quick Actions Row -->
+                    <div style="background:#202020; padding:0px 15px 3px 15px; border-bottom:1px solid #333;">
+                        <div
+                            style="font-size:0.75em; color:#aaa; margin-bottom:1px; margin-top:2px; display:flex; gap:10px; font-family:sans-serif; line-height:1;">
+                            <span style="display:flex; align-items:center; gap:4px;"><span
+                                    style="color:#e06c75">■</span> Read</span>
+                            <span style="display:flex; align-items:center; gap:4px;"><span
+                                    style="color:#d19a66">■</span> Write</span>
+                            <span style="display:flex; align-items:center; gap:4px;"><span
+                                    style="color:#98c379">■</span> Control</span>
+                            <span style="display:flex; align-items:center; gap:4px;"><span
+                                    style="color:#c678dd">■</span> Util</span>
+                        </div>
+                        <div style="display:flex; gap:5px; align-items:flex-start;">
+                            <div id="quick-actions-toolbar"
+                                style="display: flex; flex-wrap: wrap; gap: 5px; flex-grow:1;">
+                                <!-- Dynamic Content -->
+                            </div>
+                            <button class="console-btn" onclick="toggleDeleteMode()" title="Delete Buttons"
+                                style="background:#3e3e3e; color:#ccc; min-width: 30px;">🗑️</button>
+                            <button class="console-btn" onclick="openQuickActionsSetup()" title="Configure Buttons"
+                                style="background:#3e3e3e; color:#ccc; min-width: 30px;">+</button>
+                        </div>
+                    </div>
+
+                    <!-- Terminal Output -->
+                    <div id="console-output"
+                        style="flex-grow:1; overflow-y:auto; padding:10px; font-family:'Consolas', monospace; white-space:pre-wrap; font-size:14px; color:#d4d4d4;">
+                        <div style="color:#666;">--- Controller Console initialized ---</div>
+                        <div style="color:#666;">Type 'help' or commands like 'read temp'.</div>
+                    </div>
+
+                    <!-- Input Area -->
+                    <div style="background:#252526; padding:10px; border-top:1px solid #333; display:flex;">
+                        <span style="padding:10px 5px 10px 0; color:#50fa7b; font-weight:bold;">$</span>
+                        <input type="text" id="console-input" list="cmd-list" placeholder="Enter command..."
+                            style="background:transparent; border:none; color:white; font-family:'Consolas', monospace; font-size:14px; margin:0;"
+                            autocomplete="off">
+                        <datalist id="cmd-list"></datalist>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions Modal -->
+    <div id="quickActionsModal" class="modal">
+        <div class="modal-content">
+            <span class="close"
+                onclick="document.getElementById('quickActionsModal').style.display='none'">&times;</span>
+            <h2>Customize Quick Actions</h2>
+            <div id="qa-list"
+                style="max-height: 400px; overflow-y: auto; overflow-x: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+            </div>
+            <div style="margin-top: 15px; text-align: right;">
+                <button onclick="saveQuickActions()" class="main-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <h2>Telegram Notification Settings</h2>
+            <p style="font-size:0.9em; color:#aaa;">Secrets are saved on the server and never sent to devices.</p>
+
+            <label>Bot Token</label>
+            <input type="text" id="tel_token" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+
+            <label>Chat ID</label>
+            <input type="text" id="tel_chat_id" placeholder="-1001234567890">
+
+            <div style="display:flex; gap:10px;">
+                <button onclick="saveSettings()">Save</button>
+                <button class="secondary" onclick="closeSettings()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const tabsHeader = document.getElementById('tabs-header');
+        const tabsContent = document.getElementById('tabs-content');
+        let knownIps = new Set();
+        let activeTab = 'all';
+
+        // SSE Stream
+        const eventSource = new EventSource('/stream');
+        eventSource.onmessage = function (e) {
+            const msg = e.data;
+
+            // Log to 'All'
+            appendLog('all', msg);
+
+            // Extract IP: [HH:MM:SS] [IP] Message
+            const match = msg.match(/^\[.*?\] \[(.*?)\]/);
+            if (match) {
+                const ip = match[1];
+                if (ip !== 'SYSTEM' && !knownIps.has(ip)) {
+                    createTab(ip);
+                }
+                if (ip !== 'SYSTEM') {
+                    appendLog(ip, msg);
+
+                    // Also duplicate to Console if IP matches
+                    const consoleIp = document.getElementById('console-ip');
+                    if (consoleIp && consoleIp.value.trim() === ip) {
+                        // Strip IP/Time prefix for cleaner console look?
+                        // Msg format: [HH:MM:SS] [IP] Text
+                        // Console usually expects raw text.
+                        // Let's strip the prefix to make it look like local output
+                        const cleanMsg = msg.replace(/^\[.*?\] \[.*?\] /, '');
+                        appendConsole(cleanMsg, 'dim');
+                    }
+                }
+            }
+        };
+
+        function createTab(ip) {
+            knownIps.add(ip);
+            const safeIp = ip.replace(/\./g, '-');
+
+            // Create Button
+            const btn = document.createElement('button');
+            btn.className = 'tab-btn';
+            btn.onclick = () => switchTab(safeIp);
+            btn.id = `btn-${safeIp}`;
+
+            // Tab Text
+            const textSpan = document.createElement('span');
+            textSpan.textContent = ip;
+            btn.appendChild(textSpan);
+
+            // Close Button
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'close-tab';
+            closeSpan.innerHTML = '&times;';
+            closeSpan.title = "Close Tab";
+            closeSpan.onclick = (e) => closeTab(ip, e);
+            btn.appendChild(closeSpan);
+
+            tabsHeader.appendChild(btn);
+
+            // Create Content Div
+            const div = document.createElement('div');
+            div.className = 'log-container';
+            div.id = `log-${safeIp}`;
+            tabsContent.appendChild(div);
+        }
+
+        function closeTab(ip, event) {
+            if (event) event.stopPropagation();
+
+            const safeIp = ip.replace(/\./g, '-');
+            const btn = document.getElementById(`btn-${safeIp}`);
+            const div = document.getElementById(`log-${safeIp}`);
+
+            if (btn) btn.remove();
+            if (div) div.remove();
+
+            knownIps.delete(ip);
+
+            // If closed tab was active, switch to all
+            if (activeTab === safeIp) {
+                switchTab('all');
+            }
+        }
+
+        function closeAllTabs() {
+            const ips = Array.from(knownIps);
+            ips.forEach(ip => closeTab(ip, null));
+            switchTab('all');
+        }
+
+        function switchTab(safeIp) {
+            // Update buttons
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            let btnId = safeIp === 'all' ? 'all' : safeIp.replace(/\./g, '-');
+
+            // Handle edge case where safeIp might come in raw or safe
+            if (safeIp === 'all') {
+                // Find button with text 'All' or just first one? No, logic is simpler.
+                // The headers logic:
+                // <button ... onclick="switchTab('all')">
+                // <button ... onclick="switchTab('10-8-0-93')">
+                const targetBtn = safeIp === 'all' ?
+                    Array.from(tabsHeader.children).find(b => b.textContent === 'All') :
+                    document.getElementById(`btn-${safeIp}`);
+
+                if (targetBtn) targetBtn.classList.add('active');
+            } else {
+                const targetBtn = document.getElementById(`btn-${safeIp}`);
+                if (targetBtn) targetBtn.classList.add('active');
+            }
+
+            // Update content visibility
+            document.querySelectorAll('.log-container').forEach(d => d.classList.remove('active'));
+            document.getElementById(`log-${safeIp}`).classList.add('active');
+
+            activeTab = safeIp;
+        }
+
+        function ansiToHtml(text) {
+            // Basic support for ANSI colors common in linux scripts
+            const colors = {
+                '0': null,
+                '1': 'font-weight: bold',
+                '30': 'color: #aaaaaa', // Black (mapped to gray for dark theme visibility)
+                '31': 'color: #ff5555', // Red
+                '32': 'color: #50fa7b', // Green
+                '33': 'color: #f1fa8c', // Yellow
+                '34': 'color: #bd93f9', // Blue
+                '35': 'color: #ff79c6', // Magenta
+                '36': 'color: #8be9fd', // Cyan
+                '37': 'color: white'
+            };
+
+            // 1. Strip cursor/scroll/clear control sequences (garbage in logs)
+            // Matches ESC [ ... letter where letter is NOT 'm'
+            // Common codes: A (up), B (down), C (fwd), D (back), H (home), J (clear screen), K (clear line), r (scroll region)
+            // We EXPLICITLY exclude 'm' (colors) from this strip.
+            text = text.replace(/\x1b\[[\d;]*[A-Za-ln-z]/g, '');
+            // Strip Save Cursor (ESC 7) and Restore Cursor (ESC 8)
+            text = text.replace(/\x1b[78]/g, '');
+
+            // 2. Process Colors (ending in 'm')
+            return text.replace(/\x1b\[[\d;]*m/g, (match) => {
+                const codes = match.slice(2, -1); // remove \x1b[ and m
+                if (!codes || codes === '0') return '</span>';
+
+                const style = codes.split(';').map(code => colors[code]).filter(Boolean).join(';');
+                if (style) return `<span style="${style}">`;
+                return '';
+            }) + '</span>'.repeat((text.match(/<span/g) || []).length - (text.match(/<\/span>/g) || []).length);
+        }
+
+        function appendLog(safeIp, msg) {
+            safeIp = safeIp.replace(/\./g, '-');
+            const container = document.getElementById(`log-${safeIp}`);
+            if (container) {
+                const htmlContent = ansiToHtml(msg);
+
+                // Smart Log Updating: prevent spam from progress bars
+                // We check known progress patterns.
+                const patterns = [
+                    "Flash memory writing progress",
+                    "Reading package lists",
+                    "Building dependency tree"
+                ];
+
+                let replaced = false;
+                const lastEl = container.lastElementChild;
+
+                if (lastEl) {
+                    const txt = lastEl.textContent;
+                    // check if current msg AND last msg match a pattern
+                    for (const pat of patterns) {
+                        if (msg.includes(pat) && txt.includes(pat)) {
+                            lastEl.innerHTML = htmlContent;
+                            replaced = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!replaced) {
+                    const div = document.createElement('div');
+                    div.className = 'log-entry';
+                    div.innerHTML = htmlContent;
+                    container.appendChild(div);
+                }
+
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function startFlash() {
+            const ips = document.getElementById('ipInput').value;
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const port = document.getElementById('port').value;
+
+            if (!ips) { alert("Please enter IP addresses"); return; }
+
+            // Reset tabs on new run? Maybe optional.
+            // For now, let's clear unknown tabs if the user clears logs manually.
+
+            fetch('/flash', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ips: ips, username: user, password: pass, port: port })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) alert("Error: " + data.error);
+                    else console.log("Batch started:", data.count);
+                })
+                .catch(err => alert("Request failed: " + err));
+        }
+
+        function clearLogs() {
+            // Clear content of all containers
+            document.querySelectorAll('.log-container').forEach(c => c.innerHTML = '');
+        }
+
+        // Settings Logic matches previous...
+        const modal = document.getElementById("settingsModal");
+
+        function openSettings() {
+            fetch('/settings')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('tel_token').value = data.telegram_token || '';
+                    document.getElementById('tel_chat_id').value = data.telegram_chat_id || '';
+                    modal.style.display = "block";
+                });
+        }
+
+        function closeSettings() {
+            modal.style.display = "none";
+        }
+
+        function saveSettings() {
+            const token = document.getElementById('tel_token').value;
+            const chatId = document.getElementById('tel_chat_id').value;
+
+            const formData = new FormData();
+            formData.append('telegram_token', token);
+            formData.append('telegram_chat_id', chatId);
+
+            fetch('/settings', {
+                method: 'POST',
+                body: formData
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'saved') {
+                        closeSettings();
+                        alert("Settings saved!");
+                    }
+                });
+        }
+
+        window.onclick = function (event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+        // Shift+Enter to submit
+        document.getElementById('ipInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && e.shiftKey) {
+                e.preventDefault();
+                startFlash();
+            }
+        });
+
+        // ... existing code ...
+
+        // --- CONSOLE LOGIC ---
+        let cmdHistory = [];
+        let historyIndex = -1;
+
+        function refreshPorts() {
+            const sel = document.getElementById('console-port');
+            sel.innerHTML = '<option>Scanning...</option>';
+            fetch('/api/console/ports')
+                .then(res => res.json())
+                .then(ports => {
+                    sel.innerHTML = '';
+                    if (ports.length === 0) {
+                        sel.innerHTML = '<option value="">No ports found</option>';
+                    } else {
+                        ports.forEach(p => {
+                            const opt = document.createElement('option');
+                            opt.value = p;
+                            opt.textContent = p;
+                            sel.appendChild(opt);
+                        });
+                    }
+                })
+                .catch(err => {
+                    sel.innerHTML = '<option value="">Error scanning</option>';
+                });
+        }
+
+        function refreshCommands() {
+            const dl = document.getElementById('cmd-list');
+            fetch('/api/console/commands')
+                .then(res => res.json())
+                .then(cmds => {
+                    dl.innerHTML = '';
+                    cmds.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.value;
+                        opt.label = c.label; // text content? datalist uses value/label
+                        // opt.textContent = c.desc; // visible in some browsers
+                        dl.appendChild(opt);
+                    });
+                });
+        }
+
+        function appendConsole(text, type = 'normal') {
+            const out = document.getElementById('console-output');
+            const div = document.createElement('div');
+            div.textContent = text;
+            if (type === 'cmd') div.style.color = '#50fa7b';
+            if (type === 'error') div.style.color = '#ff5555';
+            if (type === 'dim') div.style.color = '#666';
+            out.appendChild(div);
+            out.scrollTop = out.scrollHeight;
+        }
+
+        // Initial Load
+        refreshCommands();
+
+        let isConnected = false;
+
+        function updateConnectionState(connected, msg = "") {
+            isConnected = connected;
+            const statusEl = document.getElementById('console-status');
+            const btn = document.getElementById('console-connect-btn');
+
+            if (connected) {
+                statusEl.textContent = "CONNECTED (Session Active)";
+                statusEl.style.color = "#98c379";
+                btn.textContent = "❌ Disconnect";
+                btn.onclick = disconnectConsole;
+                btn.style.background = "#e06c75";
+                btn.style.color = "white";
+                appendConsole(msg);
+            } else {
+                statusEl.textContent = "DISCONNECTED";
+                statusEl.style.color = "#666";
+                btn.textContent = "🔌 Connect";
+                btn.onclick = connectConsole;
+                btn.style.background = ""; // default
+                btn.style.color = "";
+                if (msg) appendConsole(msg, 'dim');
+            }
+        }
+
+        function connectConsole() {
+            const ip = document.getElementById('console-ip').value;
+            const sshPort = document.getElementById('console-ssh-port').value || "2222";
+            const user = document.getElementById('console-user').value;
+            const pass = document.getElementById('console-pass').value;
+
+            if (!ip) {
+                appendConsole("[Error] IP Required", "error");
+                return;
+            }
+
+            appendConsole(`[System] Connecting to ${ip}:${sshPort}...`, "dim");
+
+            fetch('/api/console/connect', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip: ip, ssh_port: sshPort, username: user, password: pass })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        appendConsole(`[Error] ${data.error}`, "error");
+                        // auto disconnect if session lost?
+                        if (data.error.includes("Session Lost")) {
+                            updateConnectionState(false);
+                        }
+                    } else {
+                        updateConnectionState(true, data.output);
+                    }
+                })
+                .catch(err => appendConsole(`[Network Error] ${err}`, "error"));
+        }
+
+        function disconnectConsole() {
+            fetch('/api/console/disconnect', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    updateConnectionState(false, "[System] Disconnected.");
+                });
+        }
+
+        function execConsole(cmd) {
+            // If passed command (button click) or from input
+            const input = document.getElementById('console-input');
+
+            if (!cmd && input) cmd = input.value;
+            if (!cmd) return;
+
+            // If not connected, warn user (unless it's a local util?) 
+            // Actually request prompts for connection first.
+            if (!isConnected) {
+                appendConsole("[Info] Please connect first.", "dim");
+                return;
+            }
+
+            appendConsole(`> ${cmd}`);
+
+            // History
+            if (cmdHistory[cmdHistory.length - 1] !== cmd) {
+                cmdHistory.push(cmd);
+            }
+            historyIndex = cmdHistory.length;
+
+            if (input) input.value = '';
+
+            fetch('/api/console/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cmd: cmd })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        appendConsole(`[Error] ${data.error}`, 'error');
+                        // auto disconnect if session lost?
+                        if (data.error.includes("Session Lost")) {
+                            updateConnectionState(false);
+                        }
+                    } else {
+                        if (data.output) appendConsole(data.output);
+                    }
+                })
+                .catch(err => {
+                    appendConsole(`[Network Error] ${err}`, 'error');
+                });
+        }
+
+        // Input Handler
+        const input = document.getElementById('console-input');
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const val = this.value;
+                if (!val) return;
+
+                const options = document.getElementById('cmd-list').options;
+                // Simple prefix match
+                for (let i = 0; i < options.length; i++) {
+                    if (options[i].value.startsWith(val)) {
+                        this.value = options[i].value;
+                        break;
+                    }
+                }
+            } else if (e.key === 'Enter') {
+                const cmd = this.value;
+                if (cmd) {
+                    execConsole(cmd);
+                    this.value = '';
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    this.value = cmdHistory[historyIndex];
+                }
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (historyIndex < cmdHistory.length - 1) {
+                    historyIndex++;
+                    this.value = cmdHistory[historyIndex];
+                } else {
+                    historyIndex = cmdHistory.length;
+                    this.value = '';
+                }
+            }
+        });
+
+        // Initialize Console        // Initial Load
+        refreshPorts(); // Still keep this potentially for future features or removal clean up
+        refreshCommands();
+
+        function testConnection() {
+            appendConsole("--- Testing Connection ---", "dim");
+            execConsole("read firmware_version");
+        }
+
+
+        // ... switchTab override ...
+        const oldSwitchTab = switchTab;
+        switchTab = function (safeIp) {
+            oldSwitchTab(safeIp);
+
+            // Handle Console Tab Visibility
+            const consoleDiv = document.getElementById('log-console');
+            const consoleBtn = document.querySelector('button[onclick="switchTab(\'console\')"]');
+
+            if (safeIp === 'console') {
+                // Hide others
+                document.querySelectorAll('.log-container').forEach(d => d.style.display = 'none'); // using display none for console logic override
+                document.querySelectorAll('.log-container.active').forEach(d => d.classList.remove('active')); // remove class based visibility
+
+                // Wait, existing logic uses class 'active' which sets display: block. 
+                // My console div has inline style display:none initially.
+                // Resetting logic:
+
+                // 1. Deactivate all buttons
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+                // 2. Activate Console Button
+                if (consoleBtn) consoleBtn.classList.add('active');
+
+                // 3. Hide all content
+                document.querySelectorAll('.log-container').forEach(d => {
+                    d.classList.remove('active');
+                    d.style.display = 'none'; // Ensure hidden
+                });
+
+                // 4. Show Console
+                consoleDiv.style.display = 'flex';
+                // Focus input
+                document.getElementById('console-input').focus();
+
+            } else {
+                // Determine if we need to hide console explicitly if coming FROM console
+                if (consoleDiv) consoleDiv.style.display = 'none';
+                if (consoleBtn) consoleBtn.classList.remove('active');
+
+                // Restore standard behavior visibility which relies on .active class (display:block)
+                // Note: The original switchTab adds .active to target div. 
+                // But since I added style="display:none" to console, standard CSS won't affect it, so good.
+                // But standard divs don't have inline styles, they depend on CSS.
+                // My override above 'forEach(d => d.style.display = none)' MIGHT break standard divs if I don't revert it.
+                // Standard divs rely on .active { display: block }.
+                // If I set inline display:none, class won't override it. 
+
+                // FIX: Remove inline display from standard divs
+                document.querySelectorAll('.log-container').forEach(d => {
+                    if (d.id !== 'log-console') d.style.display = '';
+                });
+            }
+        }
+        // Match local logic for scroll down
+        function scrollToBottom() {
+            const out = document.getElementById('console-output');
+            out.scrollTop = out.scrollHeight;
+        }
+
+        // --- QUICK ACTIONS ---
+        const DEFAULT_ACTIONS = ['read temp', 'read humidity', 'read version_request', 'util CP2105_RST'];
+        let quickActions = DEFAULT_ACTIONS;
+
+        function renderQuickActions() {
+            const container = document.getElementById('quick-actions-toolbar');
+            container.innerHTML = '';
+
+            // Define colors for types if needed
+            const typeColors = {
+                'read': '#e06c75',
+                'write': '#d19a66',
+                'control': '#98c379',
+                'test': '#61afef',
+                'util': '#c678dd'
+            };
+
+            quickActions.forEach(cmd => {
+                const btn = document.createElement('button');
+                btn.className = 'console-btn';
+                // Short naming logic
+                let label = cmd.split(' ')[1] || cmd;
+                if (cmd === 'util CP2105_RST') label = 'Reset USB';
+                if (cmd === 'read version_request') label = 'Ver';
+                if (cmd === 'read humidity') label = 'Hum';
+                if (cmd === 'read temp') label = 'Ext Temp';
+
+                btn.textContent = label;
+
+                const type = cmd.split(' ')[0];
+                btn.style.backgroundColor = typeColors[type] || '#5c6370';
+                // better contrast for light colors
+                if (['control', 'write'].includes(type) || label === 'Hum') btn.style.color = 'black';
+
+                if (isDeleteMode) {
+                    btn.style.border = '2px solid #ff4444';
+                    btn.classList.add('delete-shake');
+                    btn.title = "Click to DELETE";
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
+                        const newActions = quickActions.filter(x => x !== cmd);
+                        saveQuickActions(newActions);
+                    };
+                } else {
+                    btn.onclick = () => execConsole(cmd);
+                }
+
+                container.appendChild(btn);
+            });
+        }
+
+        function openQuickActionsSetup() {
+            const modal = document.getElementById('quickActionsModal');
+            const list = document.getElementById('qa-list');
+            list.innerHTML = 'Loading...';
+            modal.style.display = 'block';
+
+            // Fetch commands if not loaded
+            fetch('/api/console/commands')
+                .then(res => res.json())
+                .then(cmds => {
+                    // Sort: Selected first, then Alphabetical
+                    cmds.sort((a, b) => {
+                        const aSelected = quickActions.includes(a.value);
+                        const bSelected = quickActions.includes(b.value);
+                        if (aSelected && !bSelected) return -1;
+                        if (!aSelected && bSelected) return 1;
+                        return a.value.localeCompare(b.value);
+                    });
+
+                    list.innerHTML = '';
+                    cmds.forEach(c => {
+                        const div = document.createElement('div');
+                        const chk = document.createElement('input');
+                        chk.type = 'checkbox';
+                        chk.value = c.value;
+                        chk.checked = quickActions.includes(c.value);
+                        chk.id = 'qa-' + c.value.replace(/\s+/g, '-');
+
+                        const lbl = document.createElement('label');
+                        lbl.htmlFor = chk.id;
+                        lbl.textContent = c.value;
+                        lbl.style.marginLeft = '5px';
+                        lbl.title = c.desc;
+
+                        div.appendChild(chk);
+                        div.appendChild(lbl);
+                        list.appendChild(div);
+                    });
+                });
+        }
+
+        let isDeleteMode = false;
+
+        function toggleDeleteMode() {
+            isDeleteMode = !isDeleteMode;
+            renderQuickActions();
+        }
+
+        function saveQuickActions(customList) {
+            let newActions = [];
+
+            if (customList) {
+                newActions = customList;
+            } else {
+                const checkboxes = document.querySelectorAll('#qa-list input[type="checkbox"]');
+                checkboxes.forEach(chk => {
+                    if (chk.checked) newActions.push(chk.value);
+                });
+            }
+
+            quickActions = newActions;
+
+            // Save to Server
+            fetch('/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ quick_actions: quickActions })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'saved') {
+                        renderQuickActions();
+                        document.getElementById('quickActionsModal').style.display = 'none';
+                    } else {
+                        alert('Error saving settings');
+                    }
+                });
+        }
+
+        function loadQuickActionsFromServer() {
+            fetch('/settings')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.quick_actions && Array.isArray(data.quick_actions)) {
+                        quickActions = data.quick_actions;
+                    }
+                    renderQuickActions();
+                });
+        }
+
+        // Init
+        loadQuickActionsFromServer();
+
+    </script>
+
+</body>
+
+=======
 <!DOCTYPE html>
 <html lang="en">
 
@@ -522,4 +1697,5 @@
 
 </body>
 
+>>>>>>> 3fb241a52f0c317b0f21db1bc1a26c087a8d7603
 </html>
