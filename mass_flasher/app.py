@@ -241,6 +241,8 @@ import sys
 
 # Add dist to sys.path to import commands definition for autocomplete
 sys.path.append(os.path.join(os.path.dirname(__file__), 'dist'))
+# Also add local development path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'controlboard', 'dist')))
 
 # Try to import commands, handle failure if dist not present yet (during build/dev)
 try:
