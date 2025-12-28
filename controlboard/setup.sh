@@ -2,7 +2,7 @@
 
 # ================= ВЕРСИЯ СКРИПТА =================
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="43"
+SCRIPT_VERSION="44"
 # ==================================================
 
 # Цвета
@@ -489,6 +489,14 @@ while true; do
          STATUS_STR="[\033[32mONLINE\033[0m]"
          if [ -n "$LIVE_VER" ]; then
             CURRENT_FW="$LIVE_VER"
+            # Update state file so autoflash.sh sees the correct version
+            # Strip 'V' prefix for compatibility
+            CLEAN_VER="${LIVE_VER#V}"
+            # Only append if the last line doesn't already match to avoid spam
+            LAST_LOGGED=$(tail -n 1 "$FW_VERSION_FILE" 2>/dev/null | awk '{print $NF}')
+            if [ "$LAST_LOGGED" != "$CLEAN_VER" ]; then
+                echo "$(date '+%d.%m.%Y, %H:%M') $CLEAN_VER" >> "$FW_VERSION_FILE"
+            fi
          fi
     else
          STATUS_STR="[\033[31mOFFLINE\033[0m]"
