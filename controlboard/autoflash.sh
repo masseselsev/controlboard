@@ -67,7 +67,7 @@ HEX_FILES=()
 # Ищем файлы и сортируем их по алфавиту
 while IFS= read -r -d '' file; do
     HEX_FILES+=("$(basename "$file")")
-done < <(find . -maxdepth 1 -name "Update*.hex" -print0 | sort -z)
+done < <(find dist/ -maxdepth 1 -name "Update*.hex" -print0 | sort -z)
 
 FILE_COUNT=${#HEX_FILES[@]}
 HEX_FILE=""

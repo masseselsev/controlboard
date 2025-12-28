@@ -78,7 +78,7 @@ NC='\033[0m'
     fi
 GITHUB_USER="masseselsev"
 GITHUB_REPO="controlboard"
-REPO_FOLDER="dist"
+REPO_FOLDER="controlboard"
 BRANCH="dev"
 INSTALL_DIR="$HOME/controlboard"
 # ================================================
@@ -261,6 +261,22 @@ fi
 for url in $FILES_LIST; do
     download_file "$url?t=$(date +%s)" "$INSTALL_DIR"
 done
+
+# --- СИНХРОНИЗАЦИЯ ПАПКИ DIST ---
+echo "[*] Синхронизация папки dist:"
+DIST_DIR="$INSTALL_DIR/dist"
+mkdir -p "$DIST_DIR"
+
+FILES_LIST_DIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER/dist?ref=$BRANCH&t=$(date +%s)" | \
+python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
+
+if [ -n "$FILES_LIST_DIST" ]; then
+    for url in $FILES_LIST_DIST; do
+        download_file "$url?t=$(date +%s)" "$DIST_DIR"
+    done
+else
+    echo "[WARN] Не удалось получить список файлов для dist/."
+fi
 
 # Удаляем Windows CRLF переносы строк из скачанных файлов
 echo "[INFO] Очистка файлов от CRLF..."
