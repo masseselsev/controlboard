@@ -2,7 +2,7 @@
 
 # ================= ВЕРСИЯ СКРИПТА =================
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="42"
+SCRIPT_VERSION="43"
 # ==================================================
 
 # Цвета
@@ -502,9 +502,9 @@ while true; do
     echo "2) Прошивка контроллера"
     
     # Список доступных прошивок
-    if ls Update*.hex 1> /dev/null 2>&1; then
-        for f in Update*.hex; do
-            echo "   - $f"
+    if ls dist/Update*.hex 1> /dev/null 2>&1; then
+        for f in dist/Update*.hex; do
+            echo "   - $(basename "$f")"
         done
     else
         echo "   (нет доступных прошивок)"
