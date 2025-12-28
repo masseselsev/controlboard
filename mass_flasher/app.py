@@ -464,7 +464,7 @@ def console_connect():
             debug_errors = []
             for port in candidates:
                 # Run tech_data check
-                check_cmd = f"{sg_prefix} 'cd ~/controlboard && timeout 5s {python_bin} -u controlboard.py read tech_data -p {port}'"
+                check_cmd = f"{sg_prefix} 'cd ~/controlboard && timeout 5s {python_bin} -u dist/controlboard.py read tech_data -p {port}'"
                 
                 stdin, stdout, stderr = ssh.exec_command(check_cmd)
                 out = stdout.read().decode()
