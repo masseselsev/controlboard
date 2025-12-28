@@ -231,7 +231,8 @@ def main_loop(ser):
             if not raw_input.strip():
                 continue
 
-            parts = raw_input.split()
+            import shlex
+            parts = shlex.split(raw_input)
             cmd_type = parts[0].lower()
             
             if cmd_type == "exit":
