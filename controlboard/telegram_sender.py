@@ -6,19 +6,31 @@ import argparse
 import subprocess
 import re
 
-SCRIPT_VERSION = "2"
+SCRIPT_VERSION = "3"
 
-def get_vpn_ip():
+def get_device_ip():
     try:
-        # User requested IP from 'ip a' matching 10.8.0.*
         cmd = "ip -4 addr show"
         result = subprocess.check_output(cmd, shell=True).decode('utf-8')
         
-        # Look for 10.8.0.x
-        # inet 10.8.0.93/24 scope global tun0
-        match = re.search(r'inet (10\.8\.0\.\d+)', result)
-        if match:
-            return match.group(1)
+        # 1. Try VPN IP (10.8.0.*)
+        match_vpn = re.search(r'inet (10\.8\.0\.\d+)', result)
+        if match_vpn:
+            return f"{match_vpn.group(1)} (VPN)"
+            
+        # 2. Try Local IP (192.168.222.*)
+        match_local = re.search(r'inet (192\.168\.222\.\d+)', result)
+        if match_local:
+            return f"{match_local.group(1)} (Local)"
+            
+        # 3. Fallback: Get all global IPs (excluding loopback)
+        # Find all inet addresses
+        all_ips = re.findall(r'inet (\d+\.\d+\.\d+\.\d+)', result)
+        valid_ips = [ip for ip in all_ips if not ip.startswith('127.')]
+        
+        if valid_ips:
+            return ", ".join(valid_ips)
+            
     except Exception as e:
         return f"Unknown (Error: {e})"
     return "Unknown"
@@ -32,8 +44,8 @@ def send_telegram_message(message):
         return
 
     # Append IP Address
-    vpn_ip = get_vpn_ip()
-    final_message = f"{message}\nVPN IP: {vpn_ip}"
+    ip_addr = get_device_ip()
+    final_message = f"{message}\nIP: {ip_addr}"
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
