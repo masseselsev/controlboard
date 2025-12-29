@@ -29,9 +29,6 @@
    ```bash
    # Для новой версии Docker Compose V2
    docker compose up -d --build
-   
-   # Или для старой версии (docker-compose)
-   docker-compose up -d --build
    ```
 
    Команда выполнит:
@@ -103,6 +100,7 @@ docker compose up -d --build --remove-orphans
    - **SSH Port**: По умолчанию `2222` (для версий VSM2) или `22`.
 3. **Цели (Targets)**: 
    - Введите IP-адреса или диапазоны (например, `192.168.1.10-20`).
+   - Поддерживаемые разделители: запятая, пробел или новая строка.
 4. **Запуск**: 
    - Нажмите **Start Mass Flash**.
 
