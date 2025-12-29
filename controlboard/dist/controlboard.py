@@ -126,7 +126,7 @@ def func_update(file_path, ser, date_boot: str, ver_f: str, date_f: str, ver_u: 
     # print(f'Curren time: {current_time}')
     result_time = current_time - func_start
     print(f'> Result time: {result_time}')
-    if result_time > 600:
+    if result_time > 120:
         raise StopRecursion('Stop recursion.')
 
     # Проверка указанного формата в пути к файлу
@@ -209,16 +209,6 @@ def func_update(file_path, ser, date_boot: str, ver_f: str, date_f: str, ver_u: 
 
         if string_ver in response:
             ''' Сбрасываем МК '''
-            # Stop Watchdog before reset
-            print('> Stopping Watchdog (Freez mode)...')
-            try:
-                # cmd_info_freez = commands.cmd_control_array['freez']
-                # send_and_get(cmd_info_freez, 8, ser, ov_addr=dev_addr) 
-                # Using direct lookup to avoid variable clutter if preferred, but explicit is better
-                send_and_get(commands.cmd_control_array['freez'], 8, ser, ov_addr=dev_addr)
-            except Exception as e:
-                print(f'> Warning: Failed to stop watchdog (freez): {e}')
-
             cmd_info = commands.cmd_control_array['reset']   # получаем все данные о команде (чтобы получить массив данных только этой команды, а не всей табляцы cmd_array_new)
             send_cmd = build_modbus_cmd(cmd_info["modbus"],override_address=dev_addr)
             response = send_and_get(cmd_info, 8, ser, ov_addr=dev_addr)
