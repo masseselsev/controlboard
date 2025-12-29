@@ -16,12 +16,12 @@ def get_device_ip():
         # 1. Try VPN IP (10.8.0.*)
         match_vpn = re.search(r'inet (10\.8\.0\.\d+)', result)
         if match_vpn:
-            return f"{match_vpn.group(1)} (VPN)"
+            return match_vpn.group(1)
             
         # 2. Try Local IP (192.168.222.*)
         match_local = re.search(r'inet (192\.168\.222\.\d+)', result)
         if match_local:
-            return f"{match_local.group(1)} (Local)"
+            return match_local.group(1)
             
         # 3. Fallback: Get all global IPs (excluding loopback)
         # Find all inet addresses
@@ -46,7 +46,7 @@ def send_telegram_message(message):
     # Append IP Address
     ip_addr = get_device_ip()
     header = "<b>[VSM2 Flash&Control]</b>"
-    final_message = f"{header}\n{message}\nVPN IP: {ip_addr}"
+    final_message = f"{header}\n{message}\nDevice IP: {ip_addr}"
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
