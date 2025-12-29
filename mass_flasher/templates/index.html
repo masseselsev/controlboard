@@ -526,6 +526,9 @@
             const safeIp = ip.replace(/\./g, '-');
             if (document.getElementById(`btn-${safeIp}`)) return;
 
+            // Track IP
+            knownIps.add(ip);
+
             // Button
             const btn = document.createElement('button');
             btn.className = 'tab-btn';
