@@ -365,7 +365,6 @@
                     style="display:none; flex-direction:column; height:75vh; padding:0;">
 
                     <!-- Toolbar -->
-                    <!-- Toolbar -->
                     <div
                         style="background:#252526; padding:10px; border-bottom:1px solid #333; display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
                         <input type="text" id="console-ip" placeholder="Remote IP"
@@ -517,10 +516,40 @@
             }
         };
 
-        // ... (createTab function remains unchanged) ...
+        function createTab(ip) {
+            const safeIp = ip.replace(/\./g, '-');
+            if (document.getElementById(`btn-${safeIp}`)) return;
+
+            // Button
+            const btn = document.createElement('button');
+            btn.className = 'tab-btn';
+            btn.id = `btn-${safeIp}`;
+            btn.onclick = () => switchTab(ip);
+
+            // Name span
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = ip;
+            btn.appendChild(nameSpan);
+
+            // Close X
+            const closeSpan = document.createElement('span');
+            closeSpan.className = 'close-tab';
+            closeSpan.innerHTML = '&times;';
+            closeSpan.title = "Close Tab (history preserved in All)";
+            closeSpan.onclick = (e) => closeTab(ip, e);
+            btn.appendChild(closeSpan);
+
+            tabsHeader.appendChild(btn);
+
+            // Content Div
+            const div = document.createElement('div');
+            div.id = `log-${safeIp}`;
+            div.className = 'log-container';
+            div.setAttribute('data-ip', safeIp);
+            tabsContent.appendChild(div);
+        }
 
         function closeTab(ip, event) {
-            // ... (remains unchanged) ...
             if (event) event.stopPropagation();
 
             const safeIp = ip.replace(/\./g, '-');
@@ -538,7 +567,62 @@
             }
         }
 
-        // ... (closeAllTabs, switchTab, ansiToHtml remain unchanged) ...
+        function closeAllTabs() {
+            knownIps.forEach(ip => {
+                const safeIp = ip.replace(/\./g, '-');
+                const btn = document.getElementById(`btn-${safeIp}`);
+                const div = document.getElementById(`log-${safeIp}`);
+                if (btn) btn.remove();
+                if (div) div.remove();
+            });
+            knownIps.clear();
+            switchTab('all');
+        }
+
+        function switchTab(safeIp) {
+            // Determine active tab ID
+            activeTab = safeIp;
+            const cleanIp = safeIp.replace(/\./g, '-');
+            const targetId = (safeIp === 'all') ? 'log-all' : ((safeIp === 'console') ? 'log-console' : `log-${cleanIp}`);
+
+            // Update Buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            if (safeIp === 'all') {
+                tabsHeader.children[0].classList.add('active'); // All button
+            } else if (safeIp === 'console') {
+                // handled in override below
+            } else {
+                const btn = document.getElementById(`btn-${cleanIp}`);
+                if (btn) btn.classList.add('active');
+            }
+
+            // Update Content
+            document.querySelectorAll('.log-container').forEach(div => {
+                div.classList.remove('active');
+            });
+
+            const target = document.getElementById(targetId);
+            if (target) {
+                target.classList.add('active');
+                target.scrollTop = target.scrollHeight;
+            }
+        }
+
+        function ansiToHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\033\[0;31m/g, '<span style="color:var(--error-color)">')
+                .replace(/\033\[0;32m/g, '<span style="color:var(--success-color)">')
+                .replace(/\033\[0;33m/g, '<span style="color:orange">')
+                .replace(/\033\[0;34m/g, '<span style="color:cyan">')
+                .replace(/\033\[0m/g, '</span>')
+                .replace(/\[ERROR\]/g, '<span style="color:var(--error-color)">[ERROR]</span>')
+                .replace(/\[SUCCESS\]/g, '<span style="color:var(--success-color)">[SUCCESS]</span>')
+                .replace(/\[INFO\]/g, '<span style="color:#888">[INFO]</span>');
+        }
 
         function appendLog(safeIp, msg) {
             const cleanIp = safeIp.replace(/\./g, '-');
@@ -602,7 +686,46 @@
             });
         }
 
-        // ...
+        function startFlash() {
+            const ips = document.getElementById('ipInput').value;
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const port = document.getElementById('port').value;
+
+            if (!ips) {
+                alert("Please enter IP addresses");
+                return;
+            }
+
+            // Clear previous logs
+            // clearLogs(); // User might want to keep history? Let's keep it.
+
+            fetch('/flash', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ips: ips,
+                    username: user,
+                    password: pass,
+                    port: port
+                }),
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'started') {
+                        // Logs will stream automatically via SSE
+                        console.log("Flash started");
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                    alert('Connection error');
+                });
+        }
 
         function clearLogs() {
             // Clear content of all containers
@@ -667,8 +790,6 @@
                 startFlash();
             }
         });
-
-        // ... existing code ...
 
         // --- CONSOLE LOGIC ---
         let cmdHistory = [];
@@ -797,7 +918,6 @@
         function execConsole(cmd) {
             // If passed command (button click) or from input
             const input = document.getElementById('console-input');
-
             if (!cmd && input) cmd = input.value;
             if (!cmd) return;
 
