@@ -600,21 +600,21 @@
                 '36': 'color: #8be9fd', // Cyan
                 '37': 'color: white'
             };
-        function clearLogs() {
-             // Clear server history
-             fetch('/api/logs/clear', { method: 'POST' })
-             .then(res => res.json())
-             .then(data => {
-                  console.log("Logs cleared:", data);
-                  // Clear local buffers
-                  document.getElementById('log-all').innerHTML = '';
-                  // Also clear any dynamic tabs if we had a way to list them, 
-                  // but 'log-all' is the primary view.
-                  // Ideally we should iterate over tabs, but refreshing page handles it 
-                  // since server history is now empty.
-                  location.reload(); 
-             });
-        }
+            function clearLogs() {
+                // Clear server history
+                fetch('/api/logs/clear', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        console.log("Logs cleared:", data);
+                        // Clear local buffers
+                        document.getElementById('log-all').innerHTML = '';
+                        // Also clear any dynamic tabs if we had a way to list them, 
+                        // but 'log-all' is the primary view.
+                        // Ideally we should iterate over tabs, but refreshing page handles it 
+                        // since server history is now empty.
+                        location.reload();
+                    });
+            }
 
 
             // 1. Strip cursor/scroll/clear control sequences (garbage in logs)
@@ -637,35 +637,60 @@
         }
 
         function appendLog(safeIp, msg) {
-            safeIp = safeIp.replace(/\./g, '-');
-            const container = document.getElementById(`log-${safeIp}`);
-            if (container) {
+
+            // The container ID might vary based on how we constructed tabs. 
+            // In the "All" view, we want to update too.
+            // Actually, we usually update specific ID.
+            // But if we are in "All" view (log-all), we receive messages for everyone.
+
+            // NOTE: The backend sends events. The event source listener calls appendLog(ip, msg).
+            // Usually we target 'log-all' AND 'log-{id}'.
+            // Let's handle the specific container passed as argument? 
+            // The original code calculated container from SafeIp.
+            // But for 'log-all', we need a separate call or logic?
+            // The caller (SSE listener) handles this by calling appendLog for both 'all' and specific IP context?
+            // Wait, the caller is:
+            // source.onmessage = function(event) { ... appendLog(data.ip, data.message); }
+            // And appendLog finds 'log-' + safeIp.
+
+            // Wait! The user sees "only one active line".
+            // The SSE listener likely calls appendLog ONCE.
+            // And appendLog targets `log-${safeIp}`. 
+            // BUT `log-all` is hardcoded as a container too?
+            // Let's modify appendLog to target BOTH 'log-all' and specific 'log-safeIp'.
+
+            const cleanIp = safeIp.replace(/\./g, '-');
+            const targetIds = ['log-all', `log-${cleanIp}`];
+
+            targetIds.forEach(id => {
+                const container = document.getElementById(id);
+                if (!container) return;
+
+                // 1. Smart Scroll Check
+                const isScrolledToBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+
                 const htmlContent = ansiToHtml(msg);
 
-                // Smart Log Updating: prevent spam from progress bars
-                // We check known progress patterns.
-                const patterns = [
-                    "Flash memory writing progress",
-                    "Reading package lists",
-                    "Building dependency tree"
-                ];
+                // 2. Identify Progress Messages
+                // Heuristic: Contains %, "Progress", "Reading", "Building", "Unpacking", "Setting up"
+                const progressRegex = /%|Progress|Reading|Building|Unpacking|Setting up|Selecting|Preparing|Processing|Waiting|Connecting|Downloading/i;
+                const isProgress = progressRegex.test(msg);
 
                 let replaced = false;
-                const lastEl = container.lastElementChild;
 
-                if (lastEl) {
-                    const txt = lastEl.textContent;
-                    const lastIp = lastEl.getAttribute('data-ip');
-                    
-                    // check if current msg AND last msg match a pattern AND IPs match
-                    // Use loose match for IP because of formatting (safeIp vs real IP)
-                    if (lastIp === safeIp) {
-                        for (const pat of patterns) {
-                            if (msg.includes(pat) && txt.includes(pat)) {
-                                lastEl.innerHTML = htmlContent;
-                                replaced = true;
-                                break;
-                            }
+                // 3. Smart Update (Dashboard Style)
+                // If it IS a progress message, look for the LAST progress message from THIS IP.
+                if (isProgress) {
+                    // Search backwards, limit to last 50 entries to avoid performance hit
+                    const children = container.children;
+                    const limit = Math.max(0, children.length - 50);
+
+                    for (let i = children.length - 1; i >= limit; i--) {
+                        const child = children[i];
+                        if (child.getAttribute('data-ip') === cleanIp && child.classList.contains('log-progress')) {
+                            child.innerHTML = htmlContent;
+                            replaced = true;
+                            break;
                         }
                     }
                 }
@@ -673,13 +698,19 @@
                 if (!replaced) {
                     const div = document.createElement('div');
                     div.className = 'log-entry';
-                    div.setAttribute('data-ip', safeIp);
+                    if (isProgress) {
+                        div.classList.add('log-progress');
+                    }
+                    div.setAttribute('data-ip', cleanIp);
                     div.innerHTML = htmlContent;
                     container.appendChild(div);
                 }
 
-                container.scrollTop = container.scrollHeight;
-            }
+                // 4. Auto-Scroll only if we were at the bottom
+                if (isScrolledToBottom) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            });
         }
 
         function startFlash() {

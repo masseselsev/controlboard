@@ -52,11 +52,18 @@
 
 ```bash
 cd ~/controlboard
+
+# 1. Получаем свежие изменения
 git checkout main
 git pull origin main
+
+# 2. Пересобираем и перезапускаем контейнер
 cd mass_flasher
-docker compose up -d --build
+docker compose down
+docker compose up -d --build --remove-orphans
 ```
+
+> **Совет:** Флаг `--build` гарантирует, что любые изменения в `Dockerfile` или зависимостях (`requirements.txt`) будут применены. `down` и `--remove-orphans` помогают избежать конфликтов со старыми контейнерами.
 
 ---
 

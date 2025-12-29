@@ -4,6 +4,10 @@ import time
 import socket
 import re
 
+def clean_ansi(text):
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
+
 class FlashWorker(threading.Thread):
     def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None, tg_token="", tg_chat_id=""):
         super().__init__()
@@ -54,7 +58,7 @@ class FlashWorker(threading.Thread):
             buffer = ""
             
             # Filter verbose junk to prevent SSH buffer stall / device timeout
-            JUNK_PATTERNS = ["Got byte", "Send byte", "Index finish", "Sent 'run'", "Sent 'yes'", "byte:"]
+            JUNK_PATTERNS = ["Got byte", "Send byte", "Index finish", "Sent 'run'", "Sent 'yes'", "byte:", "Detected version:", "Trying send", "Start address"]
             
             while not channel.exit_status_ready() or channel.recv_ready():
                 if channel.recv_ready():
@@ -73,16 +77,25 @@ class FlashWorker(threading.Thread):
                             line = buffer[:idx_n]
                             buffer = buffer[idx_n+1:]
                             # Filter
-                            if not any(x in line for x in JUNK_PATTERNS):
-                                self.log(line)
+                            clean_content = clean_ansi(line).strip()
+                            if clean_content and not any(x in line for x in JUNK_PATTERNS):
+                                # Additional filtering for controlboard.py debug output starting with >
+                                if clean_content.startswith(">") and "progress" not in clean_content.lower():
+                                    pass # Skip debug > lines unless it's progress
+                                else:
+                                    self.log(line)
                         elif idx_r != -1:
                             line = buffer[:idx_r]
                             # Keep \r for progress bars if valid
                             buffer = buffer[idx_r+1:]
-                            if "progress:" in line or "Working" in line or "%" in line:
+                            clean_content = clean_ansi(line).strip()
+                            if ("progress:" in line or "Working" in line or "%" in line) and clean_content:
                                 self.log(line + "\r")
-                            elif line.strip() and not any(x in line for x in JUNK_PATTERNS):
-                                self.log(line)
+                            elif clean_content and not any(x in line for x in JUNK_PATTERNS):
+                                if clean_content.startswith(">") and "progress" not in clean_content.lower():
+                                    pass
+                                else:
+                                    self.log(line)
                 else:
                     time.sleep(0.01)
 
