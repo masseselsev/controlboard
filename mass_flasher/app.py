@@ -349,9 +349,6 @@ def flash_devices():
         port = 2222
     
     ips = parse_ip_ranges(ip_string)
-    
-    print(f"DEBUG INPUT: {repr(ip_string)}")
-    print(f"DEBUG OUTPUT: {ips}")
 
     if not ips:
         return jsonify({"error": "No valid IPs found"}), 400
