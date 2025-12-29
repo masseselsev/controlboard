@@ -8,32 +8,35 @@ import re
 
 SCRIPT_VERSION = "3"
 
-def get_device_ip():
+def get_ip_section():
     try:
         cmd = "ip -4 addr show"
         result = subprocess.check_output(cmd, shell=True).decode('utf-8')
         
-        # 1. Try VPN IP (10.8.0.*)
-        match_vpn = re.search(r'inet (10\.8\.0\.\d+)', result)
-        if match_vpn:
-            return match_vpn.group(1)
-            
-        # 2. Try Local IP (192.168.222.*)
-        match_local = re.search(r'inet (192\.168\.222\.\d+)', result)
-        if match_local:
-            return match_local.group(1)
-            
-        # 3. Fallback: Get all global IPs (excluding loopback)
         # Find all inet addresses
         all_ips = re.findall(r'inet (\d+\.\d+\.\d+\.\d+)', result)
         valid_ips = [ip for ip in all_ips if not ip.startswith('127.')]
         
-        if valid_ips:
-            return ", ".join(valid_ips)
+        vpn_ips = [ip for ip in valid_ips if ip.startswith('10.8.0.')]
+        local_ips = [ip for ip in valid_ips if ip.startswith('192.168.222.')]
+        
+        lines = []
+        if vpn_ips:
+            lines.append(f"VPN IP: {', '.join(vpn_ips)}")
+        if local_ips:
+            lines.append(f"Local IP: {', '.join(local_ips)}")
+            
+        # If neither specific category is found, fallback to listing all
+        if not lines:
+            if valid_ips:
+                lines.append(f"IPs: {', '.join(valid_ips)}")
+            else:
+                lines.append("IPs: Unknown")
+                
+        return "\n".join(lines)
             
     except Exception as e:
-        return f"Unknown (Error: {e})"
-    return "Unknown"
+        return f"IPs: Error ({e})"
 
 def send_telegram_message(message):
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -44,14 +47,15 @@ def send_telegram_message(message):
         return
 
     # Append IP Address
-    ip_addr = get_device_ip()
+    ip_section = get_ip_section()
     header = "<b>[VSM2 Flash&Control]</b>"
-    final_message = f"{header}\n{message}\nDevice IP: {ip_addr}"
+    final_message = f"{header}\n{message}\n{ip_section}"
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
         "chat_id": chat_id,
-        "text": final_message
+        "text": final_message,
+        "parse_mode": "HTML"
     }
 
     try:
