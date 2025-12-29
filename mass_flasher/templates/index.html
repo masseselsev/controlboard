@@ -492,18 +492,19 @@
                 for (let i = 0; i < 500; i++) processedMessages.delete(it.next().value);
             }
 
-            // Log to 'All'
-            appendLog('all', msg);
-
             // Extract IP: [HH:MM:SS] [IP] Message
             const match = msg.match(/^\[.*?\] \[(.*?)\]/);
+            let handled = false;
+
             if (match) {
                 const ip = match[1];
-                if (ip !== 'SYSTEM' && !knownIps.has(ip)) {
-                    createTab(ip);
-                }
                 if (ip !== 'SYSTEM') {
+                    if (!knownIps.has(ip)) {
+                        createTab(ip);
+                    }
+                    // This call will add to BOTH specific tab AND 'log-all'
                     appendLog(ip, msg);
+                    handled = true;
 
                     // Also duplicate to Console if IP matches
                     const consoleIp = document.getElementById('console-ip');
@@ -513,6 +514,11 @@
                         appendConsole(cleanMsg, 'dim');
                     }
                 }
+            }
+
+            // If not handled as a specific IP message (e.g. SYSTEM or unparsed), log just to All
+            if (!handled) {
+                appendLog('all', msg);
             }
         };
 
