@@ -36,6 +36,8 @@ class FlashWorker(threading.Thread):
         client = paramiko.SSHClient()
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         
+        reboot_triggered = False
+
         try:
             client.connect(self.ip, port=self.port, username=self.username, password=self.password, timeout=10)
             self.log("Connected. Starting flash process...")
@@ -83,6 +85,10 @@ class FlashWorker(threading.Thread):
                             # Filter
                             clean_content = clean_ansi(line) # now returns stripped
                             
+                            # Check for success indicators before filtering
+                            if "The system will reboot now" in clean_content or "Перезагрузка..." in clean_content:
+                                reboot_triggered = True
+
                             if clean_content and \
                                not any(x in line for x in JUNK_PATTERNS) and \
                                not clean_content.startswith("Hit:") and \
@@ -101,6 +107,10 @@ class FlashWorker(threading.Thread):
                             buffer = buffer[idx_r+1:]
                             clean_content = clean_ansi(line)
                             
+                            # Check for success indicators
+                            if "The system will reboot now" in clean_content or "Перезагрузка..." in clean_content:
+                                reboot_triggered = True
+
                             if ("progress:" in line or "Working" in line or "%" in line) and clean_content:
                                 self.log(clean_content + "\r")
                             elif clean_content and \
@@ -130,14 +140,21 @@ class FlashWorker(threading.Thread):
             elif exit_status == 2:
                 self.log("SUCCESS: Firmware already up to date (Skipped).")
                 self.status = "SKIPPED"
+            elif exit_status == -1 and reboot_triggered:
+                self.log("SUCCESS: Flash completed and reboot triggered (Connection closed).")
+                self.status = "SUCCESS"
             else:
                 self.log(f"FAILURE: Process exited with code {exit_status}")
                 self.status = "FAILURE"
                 
         except Exception as e:
             error_detail = str(e)
-            self.log(f"ERROR: {error_detail}")
-            self.status = "FAILURE"
+            if reboot_triggered:
+                 self.log("SUCCESS: Flash completed and reboot triggered (Connection lost).")
+                 self.status = "SUCCESS"
+            else:
+                self.log(f"ERROR: {error_detail}")
+                self.status = "FAILURE"
         finally:
             client.close()
             if self.completion_callback:
@@ -157,9 +174,11 @@ def parse_ip_ranges(input_str):
     - Range: 192.168.1.10-20
     - Range: 192.168.0.100-192.168.0.105 (Not strictly required but good to handle? Sticking to dash for last octet for simplicity as per request)
     Request examples: "192.168.0.1-7, 192.168.0.16-44, 10.8.0.92-203"
+    And also supports newlines and spaces.
     """
     ips = set()
-    parts = [p.strip() for p in input_str.split(',') if p.strip()]
+    # Split by comma, newline, or space
+    parts = [p.strip() for p in re.split(r'[,\s\n]+', input_str) if p.strip()]
     
     for part in parts:
         # Check for range (last octet range like 192.168.1.10-20)
