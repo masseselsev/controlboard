@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,6 +16,7 @@
             height: 100vh;
             margin: 0;
         }
+
         .login-box {
             background-color: #252526;
             padding: 30px;
@@ -24,7 +26,12 @@
             text-align: center;
             border: 1px solid #333;
         }
-        h2 { margin-top: 0; color: #fff; }
+
+        h2 {
+            margin-top: 0;
+            color: #fff;
+        }
+
         input {
             width: 100%;
             padding: 10px;
@@ -35,7 +42,12 @@
             border-radius: 4px;
             box-sizing: border-box;
         }
-        input:focus { outline: none; border-color: #007acc; }
+
+        input:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+
         .btn {
             width: 100%;
             padding: 10px;
@@ -46,20 +58,45 @@
             margin-top: 10px;
             transition: background 0.2s;
         }
-        .btn-login { background-color: #007acc; color: white; }
-        .btn-login:hover { background-color: #005a9e; }
-        .btn-register { background-color: #3e3e42; color: #d4d4d4; }
-        .btn-register:hover { background-color: #4e4e52; }
-        .error { color: #f48771; font-size: 0.9em; margin-bottom: 15px; }
-        .success { color: #50fa7b; font-size: 0.9em; margin-bottom: 15px; }
+
+        .btn-login {
+            background-color: #007acc;
+            color: white;
+        }
+
+        .btn-login:hover {
+            background-color: #005a9e;
+        }
+
+        .btn-register {
+            background-color: #3e3e42;
+            color: #d4d4d4;
+        }
+
+        .btn-register:hover {
+            background-color: #4e4e52;
+        }
+
+        .error {
+            color: #f48771;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .success {
+            color: #50fa7b;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
+
 <body>
 
     <div class="login-box">
-        <h2>Mass Flasher</h2>
+        <h2>VSM2 Flash&Control</h2>
         {% if error %}
-            <div class="error">{{ error }}</div>
+        <div class="error">{{ error }}</div>
         {% endif %}
         <div id="message" class="success" style="display:none;"></div>
 
@@ -68,35 +105,73 @@
             <input type="password" name="password" id="password" placeholder="Password" required>
             <button type="submit" class="btn btn-login">Login</button>
         </form>
-        
+
         <button onclick="register()" class="btn btn-register">Register</button>
+        {% if error %}
+        <button onclick="resetViaTelegram()" class="btn btn-reset"
+            style="background-color: #bb86fc; color: #000; margin-top: 10px;">New pass via TG Bot</button>
+        {% endif %}
     </div>
 
     <script>
         function register() {
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
-            
+
             if (!user || !pass) {
                 alert("Please enter Username and Password to register.");
                 return;
             }
-            
+
             fetch('/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: `username=${encodeURIComponent(user)}&password=${encodeURIComponent(pass)}`
             })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) alert(data.error);
-                else {
-                    const msg = document.getElementById('message');
-                    msg.textContent = "User created! You can now login.";
-                    msg.style.display = 'block';
-                }
-            });
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) alert(data.error);
+                    else {
+                        const msg = document.getElementById('message');
+                        msg.textContent = "User created! You can now login.";
+                        msg.style.display = 'block';
+                    }
+                });
+        }
+
+        function resetViaTelegram() {
+            const user = document.getElementById('username').value;
+            if (!user) {
+                alert("Please enter your Username first.");
+                return;
+            }
+
+            const btn = document.querySelector('.btn-reset');
+            btn.disabled = true;
+            btn.textContent = "Sending request...";
+
+            fetch('/api/reset/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: user })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    btn.disabled = false;
+                    btn.textContent = "New pass via TG Bot";
+                    if (data.error) {
+                        alert(data.error);
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(err => {
+                    btn.disabled = false;
+                    btn.textContent = "New pass via TG Bot";
+                    alert("Request failed: " + err);
+                });
         }
     </script>
 </body>
+
 </html>

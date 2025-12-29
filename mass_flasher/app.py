@@ -13,7 +13,39 @@ from ssh_utils import FlashWorker, parse_ip_ranges
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_change_this_for_prod' 
-log_queue = queue.Queue()
+log_queue = queue.Queue() # Ingestion queue (Producers write here)
+
+# Broadcast System
+subscribers = []
+LOG_HISTORY = []
+MAX_HISTORY = 500
+
+def broadcast_logger():
+    """Reads from log_queue and broadcasts to all subscribers."""
+    while True:
+        try:
+            msg = log_queue.get()
+            
+            # Save to history
+            LOG_HISTORY.append(msg)
+            if len(LOG_HISTORY) > MAX_HISTORY:
+                LOG_HISTORY.pop(0)
+            
+            # Broadcast
+            # Iterate copy of subscribers in case of modification during iteration
+            for sub in subscribers[:]:
+                try:
+                    sub.put(msg)
+                except:
+                    pass
+        except Exception as e:
+            print(f"Broadcast Error: {e}")
+            gevent.sleep(0.1)
+
+
+import gevent
+import time
+
 
 USERS_FILE = "data/users.json"
 DATA_DIR = "data"
@@ -86,7 +118,7 @@ def send_telegram_notification(ip, status, token, chat_id, error_detail=None):
     }
     status_text = status_map.get(status, status)
     
-    message = f"{status_icon} <b>Отчет Mass Flasher</b>\n\n" \
+    message = f"<b>[VSM2 Flash&Control]</b>\n{status_icon} <b>Отчет о прошивке</b>\n\n" \
               f"<b>Устройство:</b> {ip}\n" \
               f"<b>Статус:</b> {status_text}\n"
 
@@ -106,6 +138,126 @@ def send_telegram_notification(ip, status, token, chat_id, error_detail=None):
         requests.post(url, json=payload, timeout=5)
     except Exception as e:
         log_queue.put(f"[{ip}] [ERROR] Failed to send Telegram: {e}")
+
+# --- RESET PASSWORD LOGIC ---
+
+def password_reset_worker(username, token, chat_id):
+    """
+    Polls Telegram for responses for 60 seconds.
+    If a message is received from chat_id, it is set as the new password.
+    """
+    print(f"[RESET] Starting reset watcher for {username}")
+    
+    # 1. Get current update_id offset to ignore old messages
+    offset = None
+    try:
+        url = f"https://api.telegram.org/bot{token}/getUpdates"
+        res = requests.get(url, params={"limit": 1}, timeout=5)
+        if res.ok:
+            updates = res.json().get('result', [])
+            if updates:
+                offset = updates[-1]['update_id'] + 1
+    except Exception as e:
+        print(f"[RESET] Error getting initial offset: {e}")
+
+    start_time = time.time()
+    
+    while time.time() - start_time < 60:
+        try:
+            # Poll for updates
+            payload = {"timeout": 10, "allowed_updates": ["message"]}
+            if offset:
+                payload['offset'] = offset
+                
+            res = requests.post(f"https://api.telegram.org/bot{token}/getUpdates", json=payload, timeout=12)
+            
+            if not res.ok:
+                time.sleep(1)
+                continue
+                
+            updates = res.json().get('result', [])
+            
+            for u in updates:
+                offset = u['update_id'] + 1
+                msg = u.get('message', {})
+                sender_id = str(msg.get('chat', {}).get('id', ''))
+                
+                # Verify sender matches config
+                if sender_id == str(chat_id):
+                    text = msg.get('text', '').strip()
+                    if text:
+                        print(f"[RESET] Received new password for {username}")
+                        
+                        # Set new password
+                        users = load_users()
+                        users[username] = generate_password_hash(text)
+                        save_users(users)
+                        
+                        # Notify User via Telegram
+                        reply_url = f"https://api.telegram.org/bot{token}/sendMessage"
+                        requests.post(reply_url, json={
+                            "chat_id": chat_id,
+                            "text": f"<b>[VSM2 Flash&Control]</b>\n✅ Password successfully updated for user '{username}'.\nYou can now login.",
+                            "parse_mode": "HTML"
+                        })
+                        return # Done
+                        
+            gevent.sleep(1) # Yield
+            
+        except Exception as e:
+            print(f"[RESET] Polling error: {e}")
+            gevent.sleep(2)
+
+    # Timeout
+    try:
+        requests.post(f"https://api.telegram.org/bot{token}/sendMessage", json={
+            "chat_id": chat_id,
+            "text": "<b>[VSM2 Flash&Control]</b>\n⏳ Password reset request timed out.",
+            "parse_mode": "HTML"
+        })
+    except:
+        pass
+
+
+@app.route('/api/reset/request', methods=['POST'])
+def request_password_reset():
+    data = request.json
+    username = data.get('username')
+    
+    if not username:
+        return jsonify({"error": "Username required"}), 400
+        
+    users = load_users()
+    if username not in users:
+        # Security: Don't reveal user existence? Or local tool is fine?
+        # For this tool, better to give feedback.
+        return jsonify({"error": "User not found"}), 404
+        
+    config = load_user_config(username)
+    token = config.get('telegram_token')
+    chat_id = config.get('telegram_chat_id')
+    
+    if not token or not chat_id:
+        return jsonify({"error": "Telegram Bot not configured for this user. Cannot reset."}), 400
+        
+    # Send Prompt
+    try:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        msg = f"<b>[VSM2 Flash&Control]</b>\n🔐 <b>Password Reset Request</b>\n\nUser '{username}' requested a password reset.\n\nReply to this message with your new password within <b>60 seconds</b>."
+        
+        res = requests.post(url, json={"chat_id": chat_id, "text": msg, "parse_mode": "HTML"}, timeout=5)
+        
+        if not res.ok:
+            return jsonify({"error": f"Failed to contact Telegram API: {res.text}"}), 500
+            
+        # Spawn Worker
+        gevent.spawn(password_reset_worker, username, token, chat_id)
+        
+        return jsonify({"message": "Request sent! Check your Telegram and reply with the new password within 1 minute."})
+        
+    except Exception as e:
+        return jsonify({"error": f"Internal Error: {str(e)}"}), 500
+
 
 # --- ROUTES ---
 
@@ -224,14 +376,27 @@ def flash_devices():
 @login_required
 def stream():
     def event_stream():
-        while True:
-            try:
-                # Get log with timeout to allow checking for disconnects
-                # Note: This shares the queue among ALL users.
-                message = log_queue.get(timeout=10)
-                yield f"data: {message}\n\n"
-            except queue.Empty:
-                yield ": keep-alive\n\n"
+        # User-specific queue
+        q = queue.Queue()
+        subscribers.append(q)
+        
+        try:
+            # 1. Send History (Catch up)
+            for old_msg in list(LOG_HISTORY):
+                yield f"data: {old_msg}\n\n"
+            
+            # 2. Stream new messages
+            while True:
+                try:
+                    # Heartbeat every 10s
+                    message = q.get(timeout=10)
+                    yield f"data: {message}\n\n"
+                except queue.Empty:
+                    yield ": keep-alive\n\n"
+        finally:
+            # Clean up
+            if q in subscribers:
+                subscribers.remove(q)
     
     return Response(event_stream(), mimetype="text/event-stream")
 
@@ -286,6 +451,13 @@ def get_console_commands():
     if hasattr(commands, 'cmd_util_array'): add_cmds(commands.cmd_util_array, 'util')
     
     return jsonify(cmds)
+
+@app.route('/api/logs/clear', methods=['POST'])
+@login_required
+def clear_server_logs():
+    global LOG_HISTORY
+    LOG_HISTORY.clear()
+    return jsonify({"status": "cleared"})
 
 # --- CONSOLE SESSIONS ---
 CONSOLE_SESSIONS = {}
@@ -572,6 +744,10 @@ def console_send():
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
     try:
+        if isinstance(channel, str):
+             # Still mostly likely bootstapping, return temporary message
+             return jsonify({"output": "[System] Busy initializing... please wait."})
+
         if cmd:
             channel.send(cmd + "\n")
             
@@ -613,6 +789,9 @@ def console_disconnect():
 
 
 if __name__ == '__main__':
+    # Start the log broadcaster
+    gevent.spawn(broadcast_logger)
+    
     http_server = WSGIServer(('0.0.0.0', 5000), app)
     print("Serving on http://0.0.0.0:5000")
     http_server.serve_forever()

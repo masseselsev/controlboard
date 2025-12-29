@@ -44,7 +44,7 @@ class FlashWorker(threading.Thread):
             env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; export TERM=xterm-256color; '
             # Fix CRLF issues by stripping \r with tr or sed
             # wget -q -O - "..." | tr -d '\r' | bash -s "..." --flash-cleanup
-            cmd = env_vars + 'url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; wget -q -O - "$url" | tr -d \'\r\' | bash -s "$url" --flash-cleanup'
+            cmd = env_vars + 'mkdir -p ~/controlboard; url="https://raw.githubusercontent.com/masseselsev/controlboard/dev/controlboard/setup.sh?v=$(date +%s)"; if wget -q -O ~/controlboard/setup.sh "$url"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "$url" --flash-cleanup; else echo "Error: Failed to download setup.sh"; exit 1; fi'
             
             # Execute
             stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)
@@ -52,39 +52,45 @@ class FlashWorker(threading.Thread):
             # Stream output with support for \r (progress bars)
             channel = stdout.channel
             buffer = ""
+            
+            # Filter verbose junk to prevent SSH buffer stall / device timeout
+            JUNK_PATTERNS = ["Got byte", "Send byte", "Index finish", "Sent 'run'", "Sent 'yes'", "byte:"]
+            
             while not channel.exit_status_ready() or channel.recv_ready():
                 if channel.recv_ready():
                     data = channel.recv(4096).decode('utf-8', errors='replace')
+                    
+                    # Pre-filter large chunks if possible or process line by line
+                    # Since data can be partial, we add to buffer then split
                     buffer += data
+                    
                     while '\n' in buffer or '\r' in buffer:
                         idx_n = buffer.find('\n')
                         idx_r = buffer.find('\r')
                         
-                        if idx_n == -1: idx_n = float('inf')
-                        if idx_r == -1: idx_r = float('inf')
-                        
-                        split_idx = int(min(idx_n, idx_r))
-                        
-                        line = buffer[:split_idx]
-                        stripped_line = line.strip()
-                        
-                        if stripped_line:
-                            # Deduplicate identical consecutive lines (e.g. progress bars)
-                            # We only dedup if checking exact match, usually for progress
-                            if stripped_line != self.last_log_line:
-                                self.log(stripped_line)
-                                self.last_log_line = stripped_line
-                        
-                        buffer = buffer[split_idx+1:]
+                        # Find nearest separator
+                        if idx_n != -1 and (idx_r == -1 or idx_n < idx_r):
+                            line = buffer[:idx_n]
+                            buffer = buffer[idx_n+1:]
+                            # Filter
+                            if not any(x in line for x in JUNK_PATTERNS):
+                                self.log(line)
+                        elif idx_r != -1:
+                            line = buffer[:idx_r]
+                            # Keep \r for progress bars if valid
+                            buffer = buffer[idx_r+1:]
+                            if "progress:" in line or "Working" in line or "%" in line:
+                                self.log(line + "\r")
+                            elif line.strip() and not any(x in line for x in JUNK_PATTERNS):
+                                self.log(line)
                 else:
-                    time.sleep(0.1)
+                    time.sleep(0.01)
+
+            # Flush
+            if buffer.strip() and not any(x in buffer for x in JUNK_PATTERNS):
+                self.log(buffer)
             
-            # Log any remaining buffer
-            if buffer.strip():
-                stripped_line = buffer.strip()
-                if stripped_line != self.last_log_line:
-                    self.log(stripped_line)
-            
+            # Check exit
             exit_status = stdout.channel.recv_exit_status()
             
             if exit_status == 0:
