@@ -2,7 +2,7 @@
 
 # ================= ВЕРСИЯ СКРИПТА =================
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="45"
+SCRIPT_VERSION="46"
 # ==================================================
 
 # Цвета
@@ -79,7 +79,7 @@ NC='\033[0m'
 GITHUB_USER="masseselsev"
 GITHUB_REPO="controlboard"
 REPO_FOLDER="controlboard"
-BRANCH="dev"
+BRANCH="main"
 INSTALL_DIR="$HOME/controlboard"
 # ================================================
 
