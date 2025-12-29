@@ -5,8 +5,12 @@ import socket
 import re
 
 def clean_ansi(text):
+    # Aggressively remove ANSI escape sequences
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', text)
+    text = ansi_escape.sub('', text)
+    # Remove other control chars like \a (bell) etc, but keep \n
+    text = re.sub(r'[\x00-\x09\x0b-\x1f\x7f]', '', text) 
+    return text.strip()
 
 class FlashWorker(threading.Thread):
     def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None, tg_token="", tg_chat_id=""):
@@ -77,30 +81,45 @@ class FlashWorker(threading.Thread):
                             line = buffer[:idx_n]
                             buffer = buffer[idx_n+1:]
                             # Filter
-                            if clean_content and not any(x in line for x in JUNK_PATTERNS):
-                                # Additional filtering for controlboard.py debug output starting with >
+                            clean_content = clean_ansi(line) # now returns stripped
+                            
+                            if clean_content and \
+                               not any(x in line for x in JUNK_PATTERNS) and \
+                               not clean_content.startswith("Hit:") and \
+                               not clean_content.startswith("Get:") and \
+                               not re.match(r'^[\d\s]+$', clean_content): # Skip lines with only numbers/spaces
+                               
+                                # Additional debug filter
                                 if clean_content.startswith(">") and "progress" not in clean_content.lower():
-                                    pass # Skip debug > lines unless it's progress
+                                    pass 
                                 else:
-                                    self.log(clean_ansi(line))
+                                    self.log(clean_content)
+
                         elif idx_r != -1:
                             line = buffer[:idx_r]
                             # Keep \r for progress bars if valid
                             buffer = buffer[idx_r+1:]
-                            clean_content = clean_ansi(line).strip()
+                            clean_content = clean_ansi(line)
+                            
                             if ("progress:" in line or "Working" in line or "%" in line) and clean_content:
-                                self.log(clean_ansi(line) + "\r")
-                            elif clean_content and not any(x in line for x in JUNK_PATTERNS):
+                                self.log(clean_content + "\r")
+                            elif clean_content and \
+                                 not any(x in line for x in JUNK_PATTERNS) and \
+                                 not clean_content.startswith("Hit:") and \
+                                 not clean_content.startswith("Get:") and \
+                                 not re.match(r'^[\d\s]+$', clean_content):
+                                 
                                 if clean_content.startswith(">") and "progress" not in clean_content.lower():
                                     pass
                                 else:
-                                    self.log(clean_ansi(line))
+                                    self.log(clean_content)
                 else:
                     time.sleep(0.01)
 
             # Flush
-            if buffer.strip() and not any(x in buffer for x in JUNK_PATTERNS):
-                self.log(clean_ansi(buffer))
+            buffer_clean = clean_ansi(buffer)
+            if buffer_clean and not any(x in buffer for x in JUNK_PATTERNS) and not re.match(r'^[\d\s]+$', buffer_clean):
+                self.log(buffer_clean)
             
             # Check exit
             exit_status = stdout.channel.recv_exit_status()
