@@ -283,6 +283,11 @@ echo "[INFO] Очистка файлов от CRLF..."
 # Try to use sed to strip \r. Using || true to ignore errors if no files match or binary files issue (though unlikely for sh/py)
 sed -i 's/\r$//' "$INSTALL_DIR"/*.sh "$INSTALL_DIR"/*.py 2>/dev/null || true
 
+# HOTFIX: Patch controlboard.py to increase timeout (default 120s is too short for slow flashes)
+# We can't edit the dist file in repo, so we patch it on deployment.
+sed -i 's/result_time > 120/result_time > 600/g' "$INSTALL_DIR/dist/controlboard.py" 2>/dev/null || true
+
+
 chmod +x autoflash.sh dev_cleanup.sh setup.sh
 chmod +x setup.sh
 chmod +x dev_cleanup.sh
