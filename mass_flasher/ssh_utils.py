@@ -77,31 +77,30 @@ class FlashWorker(threading.Thread):
                             line = buffer[:idx_n]
                             buffer = buffer[idx_n+1:]
                             # Filter
-                            clean_content = clean_ansi(line).strip()
                             if clean_content and not any(x in line for x in JUNK_PATTERNS):
                                 # Additional filtering for controlboard.py debug output starting with >
                                 if clean_content.startswith(">") and "progress" not in clean_content.lower():
                                     pass # Skip debug > lines unless it's progress
                                 else:
-                                    self.log(line)
+                                    self.log(clean_ansi(line))
                         elif idx_r != -1:
                             line = buffer[:idx_r]
                             # Keep \r for progress bars if valid
                             buffer = buffer[idx_r+1:]
                             clean_content = clean_ansi(line).strip()
                             if ("progress:" in line or "Working" in line or "%" in line) and clean_content:
-                                self.log(line + "\r")
+                                self.log(clean_ansi(line) + "\r")
                             elif clean_content and not any(x in line for x in JUNK_PATTERNS):
                                 if clean_content.startswith(">") and "progress" not in clean_content.lower():
                                     pass
                                 else:
-                                    self.log(line)
+                                    self.log(clean_ansi(line))
                 else:
                     time.sleep(0.01)
 
             # Flush
             if buffer.strip() and not any(x in buffer for x in JUNK_PATTERNS):
-                self.log(buffer)
+                self.log(clean_ansi(buffer))
             
             # Check exit
             exit_status = stdout.channel.recv_exit_status()

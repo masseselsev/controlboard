@@ -691,11 +691,14 @@
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
             const port = document.getElementById('port').value;
+            const btn = document.querySelector('button[onclick="startFlash()"]');
 
             if (!ips) {
                 alert("Please enter IP addresses");
                 return;
             }
+
+            if (btn) btn.disabled = true;
 
             // Clear previous logs
             // clearLogs(); // User might want to keep history? Let's keep it.
@@ -724,6 +727,10 @@
                 .catch((error) => {
                     console.error('Error:', error);
                     alert('Connection error');
+                })
+                .finally(() => {
+                    // Re-enable after a short delay to prevent accidental double-clicks
+                    setTimeout(() => { if (btn) btn.disabled = false; }, 2000);
                 });
         }
 
