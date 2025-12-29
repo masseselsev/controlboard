@@ -45,7 +45,8 @@ def send_telegram_message(message):
 
     # Append IP Address
     ip_addr = get_device_ip()
-    final_message = f"{message}\nIP: {ip_addr}"
+    header = "<b>[VSM2 Flash&Control]</b>"
+    final_message = f"{header}\n{message}\nVPN IP: {ip_addr}"
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {

@@ -574,14 +574,17 @@
         }
 
         function closeAllTabs() {
-            knownIps.forEach(ip => {
+            const ips = Array.from(knownIps);
+            ips.forEach(ip => {
                 const safeIp = ip.replace(/\./g, '-');
+                // Remove elements
                 const btn = document.getElementById(`btn-${safeIp}`);
                 const div = document.getElementById(`log-${safeIp}`);
                 if (btn) btn.remove();
                 if (div) div.remove();
+                // Remove from known Set
+                knownIps.delete(ip);
             });
-            knownIps.clear();
             switchTab('all');
         }
 
