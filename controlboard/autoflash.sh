@@ -260,13 +260,6 @@ if [ "$WDT_SUCCESS" = false ]; then
 fi
 
 # --- ШАГ 6: ЗАПУСК ПРОШИВКИ ---
-# PATCH: Уменьшаем время ожидания с 20сек до 5сек, чтобы успеть до срабатывания Watchdog (120c)
-# Файл controlboard.py имеет цикл range(20, -1, -1), заменяем на range(5, -1, -1)
-if [ -f "dist/controlboard.py" ]; then
-    sed -i 's/range(20, -1, -1)/range(5, -1, -1)/g' dist/controlboard.py
-    echo "  [PATCH] Время ожидания bootloader уменьшено до 5 сек."
-fi
-
 echo -e "\n[6/7] ЗАПУСК ПРОШИВКИ! Не отключайте питание!"
 echo "  - Порт: $FOUND_PORT"
 echo "  - Файл: $HEX_FILE"
