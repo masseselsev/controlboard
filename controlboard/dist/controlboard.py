@@ -377,10 +377,25 @@ def func_update(file_path, ser, date_boot: str, ver_f: str, date_f: str, ver_u: 
                     ser.read(20)
 
                 for line in file:
-                    ser.write(line.encode('utf-8'))
-                    response = ser.read(1)
+                    # Retry logic for each line
+                    max_retries = 3
+                    for attempt in range(max_retries):
+                        ser.write(line.encode('utf-8'))
+                        
+                        # Small delay to let MCU process
+                        # time.sleep(0.01) 
+                        
+                        response = ser.read(1)
+                        if len(response) > 0:
+                            break # We got a response
+                        
+                        # If empty, wait and retry
+                        time.sleep(0.1)
+                        print(f"Warn: No response for line, retrying ({attempt+1}/{max_retries})...")
+                    
                     if len(response) == 0:
-                        raise Exception("Don't have response after sending line.")
+                        raise Exception("Don't have response after sending line (Timeout).")
+                        
                     if response[0] == NACK:
                         response = ser.read(100)
                         raise Exception(f"Some error during the process. Text from MCU:\r\n{response.decode('utf-8')}")
