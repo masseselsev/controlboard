@@ -260,12 +260,6 @@ if [ "$WDT_SUCCESS" = false ]; then
 fi
 
 # --- ШАГ 6: ЗАПУСК ПРОШИВКИ ---
-# PATCH: Runtime fix to avoid WDT timeout (120s). Reduce bootloader wait from 20s to 5s.
-if [ -f "dist/controlboard.py" ]; then
-    sed -i 's/range(20, -1, -1)/range(5, -1, -1)/g' dist/controlboard.py
-    echo "  [INFO] Applied runtime patch: Reduced bootloader wait time to 5s."
-fi
-
 echo -e "\n[6/7] ЗАПУСК ПРОШИВКИ! Не отключайте питание!"
 echo "  - Порт: $FOUND_PORT"
 echo "  - Файл: $HEX_FILE"
