@@ -270,7 +270,7 @@ CURRENT_DATE=$(date +%d.%m.%y)
 echo "  - Дата прошивки: $CURRENT_DATE"
 
 echo -e "\n>>> НАЧАЛО ОБНОВЛЕНИЯ <<<"
-if ! python dist/controlboard.py update -p "$FOUND_PORT" -f "dist/$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE"; then
+if ! python dist/controlboard.py update -p "$FOUND_PORT" -b 115200 -f "dist/$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE"; then
     echo "[КРИТИЧЕСКАЯ ОШИБКА] Сбой во время прошивки!"
     echo "[!] Попытка запуска служб..."
     sudo service edgeserver start
