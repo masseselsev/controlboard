@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="27"
+SCRIPT_VERSION="28"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -343,7 +343,29 @@ CURRENT_DATE=$(date +%d.%m.%y)
 echo "  - Дата прошивки: $CURRENT_DATE"
 
 echo -e "\n>>> НАЧАЛО ОБНОВЛЕНИЯ <<<"
-if ! python dist/controlboard.py update -p "$FOUND_PORT" -b 115200 -f "dist/$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE"; then
+echo -e "\n>>> НАЧАЛО ОБНОВЛЕНИЯ <<<"
+
+# We use a temp file to capture output because we want to stream it AND check it.
+LOG_TEMP=$(mktemp)
+
+# Execute with output capture
+if ! python dist/controlboard.py update -p "$FOUND_PORT" -b 115200 -f "dist/$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE" | tee "$LOG_TEMP"; then
+    PY_EXIT_CODE=${PIPESTATUS[0]} # Capture exit code of python
+else
+    PY_EXIT_CODE=${PIPESTATUS[0]}
+fi
+
+# Analyze Output for Silent Errors (controlboard.py exits 0 even on error)
+if grep -q "\[ERROR\]" "$LOG_TEMP" || grep -q "Exception" "$LOG_TEMP" || grep -q "Error" "$LOG_TEMP" || grep -q "Faild" "$LOG_TEMP"; then
+    echo -e "\n[ERROR] Обнаружена ошибка в выводе прошивальщика!"
+    if [ "$PY_EXIT_CODE" -eq 0 ]; then
+        PY_EXIT_CODE=1
+    fi
+fi
+
+rm -f "$LOG_TEMP"
+
+if [ "$PY_EXIT_CODE" -ne 0 ]; then
     echo "[КРИТИЧЕСКАЯ ОШИБКА] Сбой во время прошивки!"
     echo "[!] Попытка запуска служб..."
     sudo service edgeserver start
