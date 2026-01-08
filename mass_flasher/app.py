@@ -748,6 +748,28 @@ def console_connect():
 
         # Clean ANSI artifacts like [?2004h
         clean_output = ansi_escape.sub('', output)
+        
+        # Filter out shell startup noise (Last login, sg dialout echo, etc.)
+        # We look for the start of the actual app output.
+        banner_marker = "--- Интерактивный терминал контроллера ---"
+        if banner_marker in clean_output:
+            idx = clean_output.find(banner_marker)
+            # Remove everything before banner
+            clean_output = clean_output[idx:]
+            # Ensure it starts clean
+            # Clean interaction prompts
+            # Remove "Введите COM-порт..." and "Введите baudrate..." lines including inputs
+            # The input might be on the same line or next line depending on echo. 
+            # We just matched widely.
+            clean_output = re.sub(r"Введите COM-порт.*?\n", "", clean_output)
+            clean_output = re.sub(r"Введите baudrate.*?\n", "", clean_output)
+            # Cleanup multiple newlines
+            clean_output = re.sub(r"\n{3,}", "\n\n", clean_output)
+            
+            clean_output = clean_output.lstrip()
+        elif "Interactive terminal" in clean_output: # Fallback English
+             idx = clean_output.find("Interactive terminal")
+             clean_output = clean_output[idx:]
             
         CONSOLE_SESSIONS[username] = channel
         

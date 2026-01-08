@@ -855,12 +855,15 @@
 
         function appendConsole(text, type = 'normal') {
             const out = document.getElementById('console-output');
-            const div = document.createElement('div');
-            div.textContent = text;
-            if (type === 'cmd') div.style.color = '#50fa7b';
-            if (type === 'error') div.style.color = '#ff5555';
-            if (type === 'dim') div.style.color = '#666';
-            out.appendChild(div);
+            // Use span for normal stream to allow inline prompts/echo
+            // Use div for system messages (error, dim) to ensure they stand out
+            const isStream = (type === 'normal' || type === 'cmd');
+            const el = document.createElement(isStream ? 'span' : 'div');
+            el.textContent = text;
+            if (type === 'cmd') el.style.color = '#50fa7b';
+            if (type === 'error') el.style.color = '#ff5555';
+            if (type === 'dim') el.style.color = '#666';
+            out.appendChild(el);
             out.scrollTop = out.scrollHeight;
         }
 
@@ -947,7 +950,8 @@
                 return;
             }
 
-            appendConsole(`> ${cmd}`);
+            // appendConsole(`> ${cmd}`); // DISABLE LOCAL ECHO to prevent duplication
+
 
             // History
             if (cmdHistory[cmdHistory.length - 1] !== cmd) {
