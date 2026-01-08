@@ -2,7 +2,7 @@
 
 # ================= ВЕРСИЯ СКРИПТА =================
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="47"
+SCRIPT_VERSION="48"
 # ==================================================
 
 # Цвета
@@ -460,7 +460,16 @@ check_fw_version() {
                      FULL_VER=$(echo "$RAW_VER" | awk -F. '{printf "V%02d.%02d.%02d", $1, $2, $3}')
 
                      echo -e "\rПоиск контроллера... [OK] ($FULL_VER)        " >&2
-                     echo "OK $FULL_VER"
+                     
+                     # Check for Active Firmware type
+                     TYPE="Unknown"
+                     if echo "$OUTPUT" | grep -q "Active Firmware: Factory"; then
+                        TYPE="Factory"
+                     elif echo "$OUTPUT" | grep -q "Active Firmware: Update"; then
+                        TYPE="Update"
+                     fi
+
+                     echo "OK $FULL_VER $TYPE"
                      return 0
             fi
         done
