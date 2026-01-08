@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="28"
+SCRIPT_VERSION="29"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -349,7 +349,7 @@ echo -e "\n>>> НАЧАЛО ОБНОВЛЕНИЯ <<<"
 LOG_TEMP=$(mktemp)
 
 # Execute with output capture
-if ! python dist/controlboard.py update -p "$FOUND_PORT" -b 115200 -f "dist/$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE" | tee "$LOG_TEMP"; then
+if ! python dist/controlboard.py update -p "$FOUND_PORT" -b 19200 -f "dist/$HEX_FILE" --ver_u "$FIRM_VERSION" --date_u "$CURRENT_DATE" | tee "$LOG_TEMP"; then
     PY_EXIT_CODE=${PIPESTATUS[0]} # Capture exit code of python
 else
     PY_EXIT_CODE=${PIPESTATUS[0]}
