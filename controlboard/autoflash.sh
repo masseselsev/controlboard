@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="29"
+SCRIPT_VERSION="30"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -246,7 +246,11 @@ if [ "$ACTIVE_FW_TYPE" == "Factory" ]; then
     echo "  [!] Обнаружена заводская прошивка (Factory). Обновление ОБЯЗАТЕЛЬНО."
     NEED_UPDATE=true
 elif [ "$ACTIVE_FW_TYPE" == "Update" ]; then
-    if [ "$DETECTED_VER" == "$FIRM_VERSION" ]; then
+    # Normalize versions for comparison (remove 'V' prefix if present)
+    NORM_DETECTED=${DETECTED_VER#V}
+    NORM_FIRM=${FIRM_VERSION#V}
+
+    if [ "$NORM_DETECTED" == "$NORM_FIRM" ]; then
         echo "  [INFO] Версии совпадают ($DETECTED_VER). Обновление не требуется."
         NEED_UPDATE=false
     else
