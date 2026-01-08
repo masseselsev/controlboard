@@ -13,6 +13,6 @@ services:
     restart: unless-stopped
     volumes:
       - ./data:/app/data
-      - ../controlboard/dist:/app/dist
+      - ../controlboard:/app/controlboard_repo
     environment:
       - PYTHONUNBUFFERED=1

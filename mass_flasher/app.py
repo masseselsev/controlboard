@@ -406,7 +406,9 @@ import sys
 
 # Add dist to sys.path to import commands definition for autocomplete
 sys.path.append(os.path.join(os.path.dirname(__file__), 'dist'))
-# Also add local development path
+# Also add local development path (now mounted at /app/controlboard_repo/dist)
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'controlboard_repo', 'dist')))
+# Fallback for local non-docker dev
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'controlboard', 'dist')))
 
 # Try to import commands, handle failure if dist not present yet (during build/dev)
@@ -497,12 +499,15 @@ def console_connect():
         status = stdout.read().decode().strip()
         
         if status == 'MISSING':
-            # Auto-Deploy from local dist/
-            # We assume local /app/dist is available (mounted in Docker)
-            local_dist = "/app/dist"
-            if not os.path.exists(local_dist):
-                # Fallback if running outside docker or path diff
-                local_dist = "dist" 
+            # Auto-Deploy from local sources
+            # We assume the controlboard repo is mounted at /app/controlboard_repo
+            repo_path = "/app/controlboard_repo"
+            dist_path = os.path.join(repo_path, "dist")
+            
+            if not os.path.exists(repo_path):
+                # Fallback if running outside docker or path diff (local dev)
+                repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "controlboard"))
+                dist_path = os.path.join(repo_path, "dist") 
             
             # Send status update (Need a way to send partial output? 
             # We are inside the connect request, we can't stream yet. 
@@ -521,12 +526,46 @@ def console_connect():
                 ssh.exec_command("mkdir -p ~/controlboard")
                 
                 # Upload Files
-                files_to_deploy = ['app.py', 'commands.py', 'controlboard.py']
-                for fname in files_to_deploy:
-                    local_path = os.path.join(local_dist, fname)
-                    remote_path = f"controlboard/{fname}" # relative to home
+                # 1. app.py (from repo root)
+                local_app_py = os.path.join(repo_path, "app.py")
+                if os.path.exists(local_app_py):
+                    sftp.put(local_app_py, "controlboard/app.py")
+                else:
+                    log_boot(f"[WARN] Local app.py not found at {local_app_py}")
+
+                # 2. dist files (commands.py, controlboard.py)
+                for fname in ['commands.py', 'controlboard.py']:
+                    local_path = os.path.join(dist_path, fname)
+                    remote_path = f"controlboard/dist/{fname}" # keep inside dist/ on remote?
+                    # correction: setup.sh structure has 'dist' folder? 
+                    # Checking setup.sh: it downloads to $INSTALL_DIR/dist. 
+                    # But wait, remote structure usually has app.py in root and dist/ folder?
+                    # Original code put them in "controlboard/{fname}" which implies flat structure?
+                    # Let's check imports in app.py. It does `sys.path.append... dist`.
+                    # checking setup.sh again:
+                    # Line 267: DIST_DIR="$INSTALL_DIR/dist"
+                    # So dist files go to dist/. 
+                    # BUT app.py in repo is in root.
+                    # The previous code: `remote_path = f"controlboard/{fname}"` for all files.
+                    # That seems wrong if imports expect dist.
+                    # However, let's stick to flat if that's what was intended, OR fix it.
+                    # checking remote app.py usage... 
+                    # Remote app.py: tries to import commands. 
+                    # If commands.py is in same dir, it works. 
+                    # If it's in dist, we need sys.path.append.
+                    # Let's check local app.py lines 407+: it appends 'dist'.
+                    # So remote structure should PROBABLY reflect local structure.
+                    #   ~/controlboard/app.py
+                    #   ~/controlboard/dist/commands.py
+                    #   ~/controlboard/dist/controlboard.py
+                    
+                    ssh.exec_command("mkdir -p ~/controlboard/dist")
+                    
+                    remote_dist_path = f"controlboard/dist/{fname}"
                     if os.path.exists(local_path):
-                        sftp.put(local_path, remote_path)
+                        sftp.put(local_path, remote_dist_path)
+                    else:
+                        log_boot(f"[WARN] Local {fname} not found at {local_path}")
                 
                 # Check dependencies (pyserial) in venv or system?
                 # The user insists on following setup.sh which uses venv.

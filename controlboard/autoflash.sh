@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="26"
+SCRIPT_VERSION="27"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -118,32 +118,36 @@ else
     echo "[WARN] Не удалось определить версию из имени файла. Принудительная прошивка разрешена."
 fi
 
-if [ -n "$CURRENT_FW" ] && [ "$FIRM_VERSION" == "$CURRENT_FW" ]; then
-    echo "==========================================================="
-    echo " [INFO] Версия прошивки $FIRM_VERSION уже установлена."
-    echo "        Процедура прошивки отменена."
-    echo "==========================================================="
-    log_msg "Skipped flashing: versions match ($FIRM_VERSION)"
-    
-    # --- TELEGRAM NOTIFICATION (SKIPPED) ---
-    if [ -f "telegram_config.env" ]; then
-        TAGS=$(grep -v '^#' telegram_config.env | xargs)
-    if [ -n "$TAGS" ]; then
-        export $TAGS
-    fi
-    fi
-    
-    TS=$(date "+%d.%m.%Y, %H:%M")
-    MSG="ℹ️ Прошивка уже актуальна!
-Устройство: $(hostname)
-Версия: $FIRM_VERSION (установлена)
-Дата проверки: $TS
-Обновление не требуется."
-    echo "  -> Отправка уведомления (пропуск)..."
-    python telegram_sender.py "$MSG" || true
-    
-    exit 2
-fi
+# --- 1.5 ПОЛУЧЕНИЕ ИНФОРМАЦИИ О ТЕКУЩЕЙ ВЕРСИИ И ТИПЕ ---
+echo "  -> Проверка текущей версии на устройстве..."
+# Scan again to get full details (port is already found but we need context if not passed, 
+# actually step 4 finds the port. Wait, step 4 is BELOW.
+# We need to move port detection UP or utilize step 4's result? 
+# The script structure is linear. Step 4 finds the port. 
+# Logic fix: We can't check version at step 1 fully if we haven't found the port.
+# BUT, the script structure checks FILE version (dist/) vs CACHED version (smalledge_fw_version).
+# We need to change this to CHECK DEVICE version.
+# However, autoflash usually assumes we optimize by checking file first.
+# User wants: "For example: ' >>> Active Firmware: Factory'. If Factory, then firmware must be executed."
+# This implies we MUST query the device. 
+# So we need to move Port Detection (Step 4) BEFORE Version Check (currently Step 1 part 2).
+
+# REORDERING:
+# 1. Search Files
+# 2. Setup Env
+# 3. Stop Services
+# 4. Find Port (AND GET DATA)
+# 5. Decision (Update or Skip)
+# 6. Freezer/Update
+# ...
+
+# We will modify the flow slightly. We will keep Step 1 (File Search) but defer the "Skip" decision.
+
+# ... (Moving on to actual code modification)
+
+# Removing early check in Step 1.
+# (We will delete Lines 121-146 in Step 1 and move logic after Step 4)
+
 
 echo "  -> Будет установлена версия: $FIRM_VERSION"
 
@@ -187,13 +191,33 @@ echo "Службы остановлены. Порт свободен."
 echo -e "\n[4/7] Поиск контроллера на COM-портах..."
 FOUND_PORT=""
 set +e
+ACTIVE_FW_TYPE="Unknown"
+DETECTED_VER=""
+
 for port in /dev/ttyUSB{0,1,2,3,4}; do
     [ -e "$port" ] || continue
     echo -n "  - Проверка $port... "
-    OUTPUT=$(python dist/controlboard.py read version_request -p "$port" 2>&1)
-    if echo "$OUTPUT" | grep -q ">>> Version is right!!!"; then
+    # Request tech_data to get full info
+    OUTPUT=$(python dist/controlboard.py read tech_data -p "$port" 2>&1)
+    
+    if echo "$OUTPUT" | grep -q "Active Firmware:"; then
         FOUND_PORT="$port"
-        echo "OK! Контроллер найден."
+        
+        # Parse Type
+        if echo "$OUTPUT" | grep -q "Active Firmware: Factory"; then
+            ACTIVE_FW_TYPE="Factory"
+        elif echo "$OUTPUT" | grep -q "Active Firmware: Update"; then
+             ACTIVE_FW_TYPE="Update"
+        fi
+        
+        # Parse Version (Update Version)
+        # Format: "  >>> Update Version: 1.1.0"
+        RAW_VER=$(echo "$OUTPUT" | grep "Update Version:" | awk -F': ' '{print $2}' | tr -d ' \r')
+        if [ -n "$RAW_VER" ]; then
+             DETECTED_VER=$(echo "$RAW_VER" | awk -F. '{printf "V%02d.%02d.%02d", $1, $2, $3}')
+        fi
+
+        echo "OK! ($ACTIVE_FW_TYPE, $DETECTED_VER)"
         break
     else
         echo "Нет ответа."
@@ -208,6 +232,55 @@ if [ -z "$FOUND_PORT" ]; then
     sudo service vsmd start
     deactivate
     exit 1
+fi
+
+# --- 4.5 РЕШЕНИЕ ОБ ОБНОВЛЕНИИ ---
+echo -e "\n[4.5/7] Проверка необходимости обновления..."
+echo "  Активная прошивка: $ACTIVE_FW_TYPE"
+echo "  Версия на устройстве: $DETECTED_VER"
+echo "  Версия в файле: $FIRM_VERSION"
+
+NEED_UPDATE=true
+
+if [ "$ACTIVE_FW_TYPE" == "Factory" ]; then
+    echo "  [!] Обнаружена заводская прошивка (Factory). Обновление ОБЯЗАТЕЛЬНО."
+    NEED_UPDATE=true
+elif [ "$ACTIVE_FW_TYPE" == "Update" ]; then
+    if [ "$DETECTED_VER" == "$FIRM_VERSION" ]; then
+        echo "  [INFO] Версии совпадают ($DETECTED_VER). Обновление не требуется."
+        NEED_UPDATE=false
+    else
+        echo "  [INFO] Версии различаются. Требуется обновление."
+        NEED_UPDATE=true
+    fi
+else
+    echo "  [WARN] Тип прошивки не определен ($ACTIVE_FW_TYPE). Принудительное обновление."
+    NEED_UPDATE=true
+fi
+
+if [ "$NEED_UPDATE" = false ]; then
+    echo "---------------------------------------------------"
+    echo "Процедура завершена (обновление не требуется)."
+    echo "---------------------------------------------------"
+    
+    # Запуск служб обратно
+    sudo service edgeserver start
+    sudo service vsmd start
+    
+    # Telegram Notification (Skipped)
+     if [ -f "telegram_config.env" ]; then
+        TAGS=$(grep -v '^#' telegram_config.env | xargs)
+        if [ -n "$TAGS" ]; then export $TAGS; fi
+    fi
+    TS=$(date "+%d.%m.%Y, %H:%M")
+    MSG="ℹ️ Прошивка уже актуальна!
+Устройство: $(hostname)
+Версия: $DETECTED_VER (Active: $ACTIVE_FW_TYPE)
+Дата проверки: $TS
+Обновление не требуется."
+    python telegram_sender.py "$MSG" || true
+    
+    exit 2
 fi
 
 # --- ШАГ 5: ЗАМОРОЗКА WATCHDOG ---

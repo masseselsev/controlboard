@@ -2,7 +2,7 @@
 
 # ================= ВЕРСИЯ СКРИПТА =================
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="46"
+SCRIPT_VERSION="47"
 # ==================================================
 
 # Цвета
@@ -489,6 +489,7 @@ while true; do
     LIVE_STATUS_LINE=$(check_fw_version)
     LIVE_STATUS=$(echo "$LIVE_STATUS_LINE" | awk '{print $1}')
     LIVE_VER=$(echo "$LIVE_STATUS_LINE" | awk '{print $2}')
+    LIVE_TYPE=$(echo "$LIVE_STATUS_LINE" | awk '{print $3}')
 
     if [ "$LIVE_STATUS" == "OK" ]; then
          STATUS_STR="[\033[32mONLINE\033[0m]"
@@ -509,7 +510,9 @@ while true; do
 
     echo ""
     echo "=========================================="
-    echo -e "   МЕНЮ УПРАВЛЕНИЯ (VSM2 $CURRENT_FW) $STATUS_STR"
+    echo "=========================================="
+    echo -e "   МЕНЮ УПРАВЛЕНИЯ (VSM2 $CURRENT_FW [${LIVE_TYPE:-Unknown}]) $STATUS_STR"
+    echo "=========================================="
     echo "=========================================="
     echo "1) Консоль управления"
     echo "2) Прошивка контроллера"
