@@ -115,3 +115,12 @@ docker compose logs -f
 ```bash
 docker compose down
 ```
+
+## Ручная настройка клиента (Target Device)
+
+Если требуется вручную подготовить устройство (Raspberry Pi/VSM2) без использования Mass Flasher, выполните на устройстве следующую команду:
+
+```bash
+url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; wget -O - "$url" | bash -s "$url"
+```
+
