@@ -835,6 +835,78 @@ def console_send():
 
 
 
+
+@app.route('/api/console/batch_read', methods=['POST'])
+@login_required
+def console_batch_read():
+    username = session['user']
+    if username not in CONSOLE_SESSIONS:
+        return jsonify({"error": "Not connected"}), 400
+        
+    channel = CONSOLE_SESSIONS[username]
+    if isinstance(channel, str):
+        return jsonify({"error": "Console busy initializing"}), 400
+
+    data = request.json
+    commands_list = data.get('commands', [])
+    
+    if not commands_list:
+        return jsonify({"error": "No commands provided"}), 400
+        
+    import re
+    import time
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    
+    full_output = []
+    full_output.append(f"--- Batch Dump ({len(commands_list)} items) ---")
+    full_output.append(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}")
+    full_output.append("-" * 40)
+    
+    try:
+        for cmd in commands_list:
+            full_output.append(f"> read {cmd}")
+            # Ensure we send a clean command
+            channel.send(f"read {cmd}\n") 
+            
+            # Wait for processing
+            time.sleep(0.2) 
+            
+            output = ""
+            attempts = 0
+            # Wait loop
+            while attempts < 10:
+                if channel.recv_ready():
+                    chunk = channel.recv(4096).decode('utf-8', errors='ignore')
+                    output += chunk
+                    # Heuristic: if we see the prompt '$', we might be done.
+                    # But prompt might be at the end. 
+                    # simple wait for now.
+                    attempts = 0 # reset if we get data
+                else:
+                    time.sleep(0.1)
+                    attempts += 1
+            
+            clean = ansi_escape.sub('', output).strip()
+            # Try to filter out the echo
+            # e.g. "read temp\n25.0\n$"
+            lines = clean.split('\n')
+            filtered_lines = [l for l in lines if f"read {cmd}" not in l and "$" not in l]
+            result_text = "\n".join(filtered_lines).strip()
+            
+            if not result_text:
+                result_text = clean # Fallback if filtering removed everything
+                
+            full_output.append(result_text)
+            full_output.append("-" * 20)
+            
+        return jsonify({"text": "\n".join(full_output)})
+
+    except Exception as e:
+        # Don't delete session blindly on batch error, it might be recoverable
+        print(f"Batch Error: {e}")
+        return jsonify({"error": f"Batch Error: {str(e)}"}), 500
+
+
 @app.route('/api/console/disconnect', methods=['POST'])
 @login_required
 def console_disconnect():

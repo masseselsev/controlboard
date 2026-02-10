@@ -380,6 +380,8 @@
                             title="e.g /dev/ttyUSB0">
                         <button class="secondary" id="console-connect-btn" onclick="connectConsole()"
                             style="padding:5px 10px; width:auto;">🔌 Connect</button>
+                        <button class="secondary" onclick="openDumpModal()" title="Batch Read Parameters"
+                            style="padding:5px 10px; width:auto; background:#444;">📥 Dump Params</button>
                         <span id="console-status"
                             style="margin-left:10px; font-size:0.8em; color:#666; font-weight:bold;">DISCONNECTED</span>
                     </div>
@@ -440,6 +442,42 @@
             </div>
             <div style="margin-top: 15px; text-align: right;">
                 <button onclick="saveQuickActions()" class="main-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dump Parameters Modal -->
+    <div id="dumpModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close" onclick="document.getElementById('dumpModal').style.display='none'">&times;</span>
+            <h2>Select Parameters to Dump</h2>
+            <div style="margin-bottom: 10px;">
+                <button class="secondary" onclick="toggleDumpChecks(true)" style="width:auto; padding:5px 10px;">Select
+                    All</button>
+                <button class="secondary" onclick="toggleDumpChecks(false)"
+                    style="width:auto; padding:5px 10px;">Deselect All</button>
+            </div>
+            <div id="dump-list"
+                style="max-height: 400px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
+                <!-- Checkboxes generated here -->
+            </div>
+            <div style="margin-top: 15px; text-align: right;">
+                <button onclick="executeDump()" id="btn-exec-dump">Execute Dump</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dump Results Modal -->
+    <div id="dumpResultModal" class="modal">
+        <div class="modal-content" style="max-width: 700px;">
+            <span class="close" onclick="document.getElementById('dumpResultModal').style.display='none'">&times;</span>
+            <h2>Dump Results</h2>
+            <textarea id="dump-output" rows="15"
+                style="font-family: monospace; font-size: 13px; background: #111; color: #50fa7b;"></textarea>
+            <div style="margin-top: 15px; display:flex; gap: 10px; justify-content: flex-end;">
+                <button class="secondary" onclick="copyDump()">📋 Copy</button>
+                <button class="secondary" onclick="downloadDump()">💾 Download .txt</button>
+                <button onclick="document.getElementById('dumpResultModal').style.display='none'">Close</button>
             </div>
         </div>
     </div>
@@ -795,6 +833,196 @@
                         alert("Settings saved!");
                     }
                 });
+        }
+
+
+        function openDumpModal() {
+            // Check connection first? - No strict need, backend rejects. But better UX if we fetch commands.
+            fetch('/api/console/commands')
+                .then(res => res.json())
+                .then(data => {
+                    const list = document.getElementById('dump-list');
+                    list.innerHTML = '';
+
+                    // Filter just READ commands
+                    const readCmds = data.filter(c => c.value.startsWith('read '));
+
+                    if (readCmds.length === 0) {
+                        list.innerHTML = '<div style="grid-column:span 3;">No read commands found. Connect and ensure commands are loaded.</div>';
+                    }
+
+                    readCmds.forEach(cmd => {
+                        const name = cmd.value.replace('read ', '');
+                        const div = document.createElement('div');
+                        div.innerHTML = `
+                            <label style="font-weight:normal; display:flex; align-items:center;">
+                                <input type="checkbox" name="dump-chk" value="${name}" style="width:auto; margin-right:5px;"> 
+                                ${name}
+                            </label>
+                        `;
+                        list.appendChild(div);
+                    });
+
+                    document.getElementById('dumpModal').style.display = 'block';
+                });
+        }
+
+        function toggleDumpChecks(state) {
+            document.querySelectorAll('input[name="dump-chk"]').forEach(box => box.checked = state);
+        }
+
+        function executeDump() {
+            const boxes = document.querySelectorAll('input[name="dump-chk"]:checked');
+            const commands = Array.from(boxes).map(b => b.value);
+
+            if (commands.length === 0) {
+                alert("Select at least one parameter.");
+                return;
+            }
+
+            const btn = document.getElementById('btn-exec-dump');
+            const originalText = btn.innerText;
+            btn.innerText = "Reading... Please wait";
+            btn.disabled = true;
+
+            fetch('/api/console/batch_read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ commands: commands })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        alert("Error: " + data.error);
+                    } else {
+                        document.getElementById('dumpModal').style.display = 'none';
+                        document.getElementById('dump-output').value = data.text;
+                        document.getElementById('dumpResultModal').style.display = 'block';
+                    }
+                })
+                .catch(e => alert("Connection error: " + e))
+                .finally(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                });
+        }
+
+        function copyDump() {
+            const copyText = document.getElementById("dump-output");
+            copyText.select();
+            document.execCommand("copy"); // Legacy but works widely
+            // Or navigator.clipboard.writeText(copyText.value);
+        }
+
+        function downloadDump() {
+            const text = document.getElementById("dump-output").value;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            // Generate filename with timestamp
+            const now = new Date();
+            const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            a.download = `dump_${ts}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+
+        function openDumpModal() {
+            // Check connection first? - No strict need, backend rejects. But better UX if we fetch commands.
+            fetch('/api/console/commands')
+                .then(res => res.json())
+                .then(data => {
+                    const list = document.getElementById('dump-list');
+                    list.innerHTML = '';
+
+                    // Filter just READ commands
+                    const readCmds = data.filter(c => c.value.startsWith('read '));
+
+                    if (readCmds.length === 0) {
+                        list.innerHTML = '<div style="grid-column:span 3;">No read commands found. Connect and ensure commands are loaded.</div>';
+                    }
+
+                    readCmds.forEach(cmd => {
+                        const name = cmd.value.replace('read ', '');
+                        const div = document.createElement('div');
+                        div.innerHTML = `
+                            <label style="font-weight:normal; display:flex; align-items:center;">
+                                <input type="checkbox" name="dump-chk" value="${name}" style="width:auto; margin-right:5px;"> 
+                                ${name}
+                            </label>
+                        `;
+                        list.appendChild(div);
+                    });
+
+                    document.getElementById('dumpModal').style.display = 'block';
+                });
+        }
+
+        function toggleDumpChecks(state) {
+            document.querySelectorAll('input[name="dump-chk"]').forEach(box => box.checked = state);
+        }
+
+        function executeDump() {
+            const boxes = document.querySelectorAll('input[name="dump-chk"]:checked');
+            const commands = Array.from(boxes).map(b => b.value);
+
+            if (commands.length === 0) {
+                alert("Select at least one parameter.");
+                return;
+            }
+
+            const btn = document.getElementById('btn-exec-dump');
+            const originalText = btn.innerText;
+            btn.innerText = "Reading... Please wait";
+            btn.disabled = true;
+
+            fetch('/api/console/batch_read', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ commands: commands })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.error) {
+                        alert("Error: " + data.error);
+                    } else {
+                        document.getElementById('dumpModal').style.display = 'none';
+                        document.getElementById('dump-output').value = data.text;
+                        document.getElementById('dumpResultModal').style.display = 'block';
+                    }
+                })
+                .catch(e => alert("Connection error: " + e))
+                .finally(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                });
+        }
+
+        function copyDump() {
+            const copyText = document.getElementById("dump-output");
+            copyText.select();
+            document.execCommand("copy"); // Legacy but works widely
+            // Or navigator.clipboard.writeText(copyText.value);
+        }
+
+        function downloadDump() {
+            const text = document.getElementById("dump-output").value;
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            // Generate filename with timestamp
+            const now = new Date();
+            const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            a.download = `dump_${ts}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
         }
 
         window.onclick = function (event) {

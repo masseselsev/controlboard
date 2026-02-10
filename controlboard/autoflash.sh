@@ -183,8 +183,8 @@ pip install pyserial requests > /dev/null
 
 # --- ШАГ 3: ОСТАНОВКА СЛУЖБ ---
 echo -e "\n[3/7] Временная остановка служб для доступа к порту..."
-sudo service edgeserver stop
-sudo service vsmd stop
+sudo service edgeserver stop || true
+sudo service vsmd stop || true
 echo "Службы остановлены. Порт свободен."
 
 # --- ШАГ 4: ПОИСК ПОРТА ---
@@ -228,8 +228,8 @@ set -e
 if [ -z "$FOUND_PORT" ]; then
     echo "ОШИБКА: Не удалось найти контроллер."
     echo "[!] АВАРИЙНЫЙ ЗАПУСК СЛУЖБ..."
-    sudo service edgeserver start
-    sudo service vsmd start
+    sudo service edgeserver start || true
+    sudo service vsmd start || true
     deactivate
     exit 1
 fi
@@ -268,8 +268,8 @@ if [ "$NEED_UPDATE" = false ]; then
     echo "---------------------------------------------------"
     
     # Запуск служб обратно
-    sudo service edgeserver start
-    sudo service vsmd start
+    sudo service edgeserver start || true
+    sudo service vsmd start || true
     
     # Telegram Notification (Skipped)
      if [ -f "telegram_config.env" ]; then
@@ -330,8 +330,8 @@ if [ "$WDT_SUCCESS" = false ]; then
     echo "Возможна нестабильная связь или сбой контроллера."
     echo "---------------------------------------------------"
     echo "[!] АВАРИЙНЫЙ ЗАПУСК СЛУЖБ..."
-    sudo service edgeserver start
-    sudo service vsmd start
+    sudo service edgeserver start || true
+    sudo service vsmd start || true
     deactivate
     exit 1
 fi
@@ -372,8 +372,8 @@ rm -f "$LOG_TEMP"
 if [ "$PY_EXIT_CODE" -ne 0 ]; then
     echo "[КРИТИЧЕСКАЯ ОШИБКА] Сбой во время прошивки!"
     echo "[!] Попытка запуска служб..."
-    sudo service edgeserver start
-    sudo service vsmd start
+    sudo service edgeserver start || true
+    sudo service vsmd start || true
     log_msg "ERROR: Flashing failed."
     exit 1
 fi
@@ -408,7 +408,7 @@ echo -e "\n--- ПРОШИВКА УСПЕШНО ЗАВЕРШЕНА ---"
 deactivate
 
 echo -e "\n[7/7] Запуск служб..."
-sudo service edgeserver start
-sudo service vsmd start
+sudo service edgeserver start || true
+sudo service vsmd start || true
 echo "Службы edgeserver и vsmd запущены."
 echo "Система работает в штатном режиме."
