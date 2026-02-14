@@ -977,13 +977,35 @@
 
             const btn = document.getElementById('btn-exec-dump');
             const originalText = btn.innerText;
-            btn.innerText = "Reading... Please wait";
-            btn.disabled = true;
 
-            fetch('/api/console/batch_read', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ commands: commands })
+            // Auto-connect logic
+            let connectPromise = Promise.resolve();
+            if (!isConnected) {
+                const ipInput = document.getElementById('console-ip');
+                if (ipInput && ipInput.value.trim()) {
+                    // console.log("Auto-connecting for dump...");
+                    btn.innerText = "Connecting...";
+                    btn.disabled = true;
+                    connectPromise = connectConsole();
+                } else {
+                    alert("Not connected and no IP provided.");
+                    return;
+                }
+            }
+
+            connectPromise.then(() => {
+                if (!isConnected) {
+                    throw new Error("Connection failed");
+                }
+
+                btn.innerText = "Reading... Please wait";
+                btn.disabled = true;
+
+                return fetch('/api/console/batch_read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ commands: commands })
+                });
             })
                 .then(res => res.json())
                 .then(data => {
@@ -995,7 +1017,11 @@
                         document.getElementById('dumpResultModal').style.display = 'block';
                     }
                 })
-                .catch(e => alert("Connection error: " + e))
+                .catch(e => {
+                    if (e.message !== "Connection failed") {
+                        alert("Operation error: " + e);
+                    }
+                })
                 .finally(() => {
                     btn.innerText = originalText;
                     btn.disabled = false;
@@ -1132,12 +1158,12 @@
 
             if (!ip) {
                 appendConsole("[Error] IP Required", "error");
-                return;
+                return Promise.reject("IP Required");
             }
 
             appendConsole(`[System] Connecting to ${ip}:${sshPort}...`, "dim");
 
-            fetch('/api/console/connect', {
+            return fetch('/api/console/connect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ip: ip, ssh_port: sshPort, username: user, password: pass })
@@ -1150,11 +1176,19 @@
                         if (data.error.includes("Session Lost")) {
                             updateConnectionState(false);
                         }
+                        throw new Error(data.error);
                     } else {
                         updateConnectionState(true, data.output);
+                        return data;
                     }
                 })
-                .catch(err => appendConsole(`[Network Error] ${err}`, "error"));
+                .catch(err => {
+                    // Only append if it wasn't already appended
+                    if (!err.message || !err.message.startsWith('[Error]')) {
+                        appendConsole(`[Network Error] ${err}`, "error");
+                    }
+                    throw err;
+                });
         }
 
         function disconnectConsole() {

@@ -12,6 +12,17 @@ def clean_ansi(text):
     text = re.sub(r'[\x00-\x09\x0b-\x1f\x7f]', '', text) 
     return text.strip()
 
+def get_source_ip(target_ip, port=22):
+    """Determines the source IP that would be used to connect to the target."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect((target_ip, port))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return None
+
 class FlashWorker(threading.Thread):
     def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None, tg_token="", tg_chat_id=""):
         super().__init__()
@@ -51,10 +62,32 @@ class FlashWorker(threading.Thread):
             if not self.tg_token or not self.tg_chat_id:
                 self.log("WARN: Telegram credentials are missing. Notifications will NOT be sent.")
             
-            env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; export TERM=xterm-256color; '
+            if not self.tg_token or not self.tg_chat_id:
+                self.log("WARN: Telegram credentials are missing. Notifications will NOT be sent.")
+            
+            # Determine BASE_URL for offline/local flashing
+            source_ip = get_source_ip(self.ip, self.port)
+            base_url_env = ""
+            if source_ip:
+                # We assume the flask app is running on port 5000 on the same interface
+                base_url = f"http://{source_ip}:5000"
+                base_url_env = f'export BASE_URL="{base_url}"; '
+                self.log(f"Using Local Flasher URL: {base_url}")
+            
+            env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; export TERM=xterm-256color; {base_url_env}'
             # Fix CRLF issues by stripping \r with tr or sed
             # wget -q -O - "..." | tr -d '\r' | bash -s "..." --flash-cleanup
-            cmd = env_vars + 'mkdir -p ~/controlboard; url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; if wget -q -O ~/controlboard/setup.sh "$url"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "$url" --flash-cleanup; else echo "Error: Failed to download setup.sh"; exit 1; fi'
+            
+            # If BASE_URL is set, we use it to fetch setup.sh, otherwise GitHub
+            # We construct a primary URL command
+            if base_url_env:
+                 # Local Setup URL
+                 setup_url = f"{base_url}/files/controlboard/setup.sh"
+                 # We pass the setup_url as argument so the script knows where it came from (logic in setup.sh)
+                 cmd = env_vars + f'mkdir -p ~/controlboard; if wget -q -O ~/controlboard/setup.sh "{setup_url}"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "{setup_url}" --flash-cleanup; else echo "Error: Failed to download setup.sh from {setup_url}"; exit 1; fi'
+            else:
+                 # Fallback to GitHub
+                 cmd = env_vars + 'mkdir -p ~/controlboard; url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; if wget -q -O ~/controlboard/setup.sh "$url"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "$url" --flash-cleanup; else echo "Error: Failed to download setup.sh"; exit 1; fi'
             
             # Execute
             stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)

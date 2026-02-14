@@ -10,6 +10,35 @@ import os
 import requests
 from functools import wraps
 from ssh_utils import FlashWorker, parse_ip_ranges
+import git
+import threading
+import socket  # Added for IP detection
+
+# --- REPO CACHE SETTINGS ---
+REPO_CACHE_DIR = "/app/repo_cache"
+REPO_URL = "https://github.com/masseselsev/controlboard.git"
+REPO_Lock = threading.Lock()
+
+def sync_repo():
+    """Background task to sync the repo on startup."""
+    with REPO_Lock:
+        try:
+            if not os.path.exists(os.path.join(REPO_CACHE_DIR, '.git')):
+                print(f"[REPO] Cloning {REPO_URL} to {REPO_CACHE_DIR}...")
+                if not os.path.exists(REPO_CACHE_DIR):
+                    os.makedirs(REPO_CACHE_DIR)
+                git.Repo.clone_from(REPO_URL, REPO_CACHE_DIR)
+                print("[REPO] Clone complete.")
+            else:
+                print(f"[REPO] Pulling changes in {REPO_CACHE_DIR}...")
+                repo = git.Repo(REPO_CACHE_DIR)
+                repo.remotes.origin.pull()
+                print("[REPO] Pull complete.")
+        except Exception as e:
+            print(f"[REPO] Sync failed (Offline Mode?): {e}")
+
+# Start sync in background
+threading.Thread(target=sync_repo, daemon=True).start()
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_change_this_for_prod' 
@@ -461,10 +490,55 @@ def clear_server_logs():
     LOG_HISTORY.clear()
     return jsonify({"status": "cleared"})
 
-# --- CONSOLE SESSIONS ---
-CONSOLE_SESSIONS = {}
 
-@app.route('/api/console/connect', methods=['POST'])
+# --- FILE SERVER FOR OFFLINE FLASHING ---
+
+from flask import send_from_directory
+
+@app.route('/files/<path:filename>')
+def serve_repo_file(filename):
+    """Serves files from the local repo cache."""
+    return send_from_directory(REPO_CACHE_DIR, filename)
+
+@app.route('/api/repo/list')
+def list_repo_files():
+    """
+    Mimics GitHub API to list files in a directory.
+    Query param: path (relative to repo root)
+    Returns: JSON list of objects with 'download_url' and 'type'
+    """
+    rel_path = request.args.get('path', '')
+    # Secure path to prevent traversal
+    safe_path = os.path.normpath(os.path.join(REPO_CACHE_DIR, rel_path))
+    if not safe_path.startswith(REPO_CACHE_DIR):
+        return jsonify([]), 403
+        
+    if not os.path.exists(safe_path) or not os.path.isdir(safe_path):
+        return jsonify([]), 404
+        
+    files = []
+    # host_url includes scheme and host (http://IP:5000)
+    base_url = request.host_url.rstrip('/') 
+    
+    for item in os.listdir(safe_path):
+        item_path = os.path.join(safe_path, item)
+        item_rel = os.path.join(rel_path, item)
+        
+        if os.path.isfile(item_path):
+            files.append({
+                "name": item,
+                "type": "file",
+                # GitHub logic: download_url
+                "download_url": f"{base_url}/files/{item_rel}"
+            })
+        elif os.path.isdir(item_path):
+             files.append({
+                "name": item,
+                "type": "dir",
+                 "download_url": None
+             })
+             
+    return jsonify(files)
 @login_required
 def console_connect():
     username = session['user']
@@ -485,6 +559,15 @@ def console_connect():
             pass
         del CONSOLE_SESSIONS[username]
 
+    # Determine Local IP (Base URL)
+    # We need the IP of the interface that connects to the target.
+    # We can get this *after* connecting via SSH (client.get_transport().sock.getsockname()[0])
+    # BUT we need to pass it to FlashWorker/setup.sh later? 
+    # Actually, for CONSOLE connect we don't need it yet, but for FLASH we do.
+    # However, console connect ALSO does bootstrap! 
+    # The bootstrap in console_connect uses SFTP, so it doesn't need HTTP.
+    # Only FlashWorker uses setup.sh which needs HTTP.
+    
     import paramiko
     import time
 

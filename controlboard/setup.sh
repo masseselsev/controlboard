@@ -156,8 +156,14 @@ if [ -n "$INPUT_URL" ]; then
         CURRENT_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
     fi
 else
-    CURRENT_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
+    # Check for BASE_URL injection from Flasher
+    if [ -n "$BASE_URL" ]; then
+        CURRENT_URL="$BASE_URL/files/controlboard/setup.sh"
+    else
+        CURRENT_URL="https://raw.githubusercontent.com/$GITHUB_USER/$GITHUB_REPO/$BRANCH/$REPO_FOLDER/setup.sh"
+    fi
 fi
+
 
 download_file() {
     local url=$1
@@ -247,11 +253,21 @@ echo -e "[${GREEN}OK${NC}] Права доступа подтверждены."
 cd "$INSTALL_DIR"
 rm -f *\?t\=*
 
-echo "[*] Синхронизация с GitHub:"
-echo "    Источник: $GITHUB_USER/$GITHUB_REPO (Ветка: $BRANCH)"
+if [ -n "$BASE_URL" ]; then
+    echo "[*] Синхронизация с локального сервера ($BASE_URL)..."
+    # Fetch list from API
+    # API returns JSON list with download_url
+    FILES_LIST_JSON=$(curl -s "$BASE_URL/api/repo/list?path=controlboard&t=$(date +%s)")
+    
+    # Parse JSON (using python3 as we have it)
+    FILES_LIST=$(echo "$FILES_LIST_JSON" | python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f.get('type') == 'file']))")
+else
+    echo "[*] Синхронизация с GitHub:"
+    echo "    Источник: $GITHUB_USER/$GITHUB_REPO (Ветка: $BRANCH)"
 
-FILES_LIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER?ref=$BRANCH&t=$(date +%s)" | \
-python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
+    FILES_LIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER?ref=$BRANCH&t=$(date +%s)" | \
+    python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
+fi
 
 if [ -z "$FILES_LIST" ]; then
     echo "[ОШИБКА] Не удалось получить список файлов."
@@ -259,21 +275,28 @@ if [ -z "$FILES_LIST" ]; then
 fi
 
 for url in $FILES_LIST; do
-    download_file "$url?t=$(date +%s)" "$INSTALL_DIR"
+    download_file "$url" "$INSTALL_DIR" # Removed ?t=... because local list might already have it or not needed
 done
+
 
 # --- СИНХРОНИЗАЦИЯ ПАПКИ DIST ---
 echo "[*] Синхронизация папки dist:"
 DIST_DIR="$INSTALL_DIR/dist"
 mkdir -p "$DIST_DIR"
 
-FILES_LIST_DIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER/dist?ref=$BRANCH&t=$(date +%s)" | \
-python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
+if [ -n "$BASE_URL" ]; then
+    FILES_LIST_DIST_JSON=$(curl -s "$BASE_URL/api/repo/list?path=controlboard/dist&t=$(date +%s)")
+    FILES_LIST_DIST=$(echo "$FILES_LIST_DIST_JSON" | python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f.get('type') == 'file']))")
+else
+    FILES_LIST_DIST=$(curl -s "https://api.github.com/repos/$GITHUB_USER/$GITHUB_REPO/contents/$REPO_FOLDER/dist?ref=$BRANCH&t=$(date +%s)" | \
+    python3 -c "import sys, json; print('\n'.join([f['download_url'] for f in json.load(sys.stdin) if f['type'] == 'file']))")
+fi
 
 if [ -n "$FILES_LIST_DIST" ]; then
     for url in $FILES_LIST_DIST; do
-        download_file "$url?t=$(date +%s)" "$DIST_DIR"
+        download_file "$url" "$DIST_DIR"
     done
+
 else
     echo "[WARN] Не удалось получить список файлов для dist/."
 fi

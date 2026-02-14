@@ -12,5 +12,10 @@ services:
     volumes:
       - ./data:/app/data
       - ../controlboard:/app/controlboard_repo
+      - repo_cache:/app/repo_cache
     environment:
       - PYTHONUNBUFFERED=1
+
+volumes:
+  repo_cache:
+
