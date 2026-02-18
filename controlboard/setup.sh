@@ -362,7 +362,20 @@ PY_VER=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_i
 VENV_PKG="python${PY_VER}-venv"
 
 echo "    Обновление списков пакетов (apt update)..."
-sudo apt update
+    APT_OK=false
+    for i in {1..5}; do
+        if sudo apt update; then
+            APT_OK=true
+            break
+        fi
+        echo "    [WARN] apt update failed (locked?). Retrying ($i/5)..."
+        sleep 3
+    done
+    
+    if [ "$APT_OK" = false ]; then
+         echo "    [CRITICAL] apt update repeated failure."
+         exit 100
+    fi
 
 echo "    Проверка пакета $VENV_PKG..."
 if ! dpkg -s "$VENV_PKG" 2>/dev/null | grep -q "Status: install ok installed"; then

@@ -31,6 +31,8 @@ if not os.path.exists(REPO_CACHE_DIR):
         pass
 REPO_URL = "https://github.com/masseselsev/controlboard.git"
 REPO_Lock = threading.Lock()
+ACTIVE_TASKS = set()
+ACTIVE_TASKS_LOCK = threading.Lock()
 
 def sync_repo():
     """Background task to sync the repo on startup."""
@@ -738,6 +740,24 @@ def flash_devices():
 
     if not ips:
         return jsonify({"error": "No valid IPs found"}), 400
+
+    # --- DUPLICATE PREVENTION ---
+    with ACTIVE_TASKS_LOCK:
+        available_ips = []
+        skipped_ips = []
+        for ip in ips:
+            if ip in ACTIVE_TASKS:
+                skipped_ips.append(ip)
+            else:
+                available_ips.append(ip)
+                ACTIVE_TASKS.add(ip)
+    
+    if skipped_ips:
+        log_queue.put(f"[SYSTEM] [WARN] Skipped {len(skipped_ips)} busy devices: {', '.join(skipped_ips)}")
+        if not available_ips:
+             return jsonify({"error": "All devices are currently busy!", "skipped": skipped_ips}), 409
+
+    ips = available_ips # Proceed only with available
         
     log_queue.put(f"[SYSTEM] User '{username}' starting batch for {len(ips)} devices.")
     
@@ -758,6 +778,8 @@ def flash_devices():
 
     # Create a closure to capture token/chat_id for THIS batch
     def notification_callback(ip, status, error_detail=None):
+        with ACTIVE_TASKS_LOCK:
+             ACTIVE_TASKS.discard(ip)
         send_telegram_notification(ip, status, tg_token, tg_chat_id, error_detail)
 
     # Detect Host IP to advertise to devices (solves Docker networking issues)
