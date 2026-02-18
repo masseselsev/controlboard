@@ -550,19 +550,7 @@
             <label for="user_timezone" style="margin-top: 10px; display:block;">{{ t.timezone_label }}</label>
             <select id="user_timezone"
                 style="width: 100%; padding: 8px; margin-bottom: 10px; background: #333; color: white; border: 1px solid #555;">
-                <option value="UTC">UTC</option>
-                <option value="Europe/Moscow">Europe/Moscow (UTC+3)</option>
-                <option value="Asia/Yekaterinburg">Asia/Yekaterinburg (UTC+5)</option>
-                <option value="Asia/Omsk">Asia/Omsk (UTC+6)</option>
-                <option value="Asia/Novosibirsk">Asia/Novosibirsk (UTC+7)</option>
-                <option value="Asia/Krasnoyarsk">Asia/Krasnoyarsk (UTC+7)</option>
-                <option value="Asia/Irkutsk">Asia/Irkutsk (UTC+8)</option>
-                <option value="Asia/Yakutsk">Asia/Yakutsk (UTC+9)</option>
-                <option value="Asia/Vladivostok">Asia/Vladivostok (UTC+10)</option>
-                <option value="Asia/Magadan">Asia/Magadan (UTC+11)</option>
-                <option value="Asia/Kamchatka">Asia/Kamchatka (UTC+12)</option>
-                <option value="Europe/Kaliningrad">Europe/Kaliningrad (UTC+2)</option>
-                <option value="Europe/Samara">Europe/Samara (UTC+4)</option>
+                <!-- Populated by JS -->
             </select>
 
             <div style="margin-top: 20px; display:flex; gap:10px;">
@@ -808,7 +796,10 @@
             });
         }
 
+        let isFlashing = false;
+
         function startFlash() {
+            if (isFlashing) return;
             const ips = document.getElementById('ipInput').value;
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
@@ -831,6 +822,7 @@
             }
 
             if (btn) btn.disabled = true;
+            isFlashing = true;
 
             fetch('/flash', {
                 method: 'POST',
@@ -859,9 +851,40 @@
                     alert(T.connection_error);
                 })
                 .finally(() => {
+                    isFlashing = false;
                     setTimeout(() => { if (btn) btn.disabled = false; }, 2000);
                 });
         }
+
+        function populateTimezones() {
+            const select = document.getElementById('user_timezone');
+            if (!select) return;
+            select.innerHTML = '';
+
+            // Start with UTC
+            const utcOpt = document.createElement('option');
+            utcOpt.value = 'UTC';
+            utcOpt.textContent = 'UTC (Universal)';
+            select.appendChild(utcOpt);
+
+            if (typeof Intl !== 'undefined' && Intl.supportedValuesOf) {
+                try {
+                    const timezones = Intl.supportedValuesOf('timeZone');
+                    timezones.forEach(tz => {
+                        if (tz === 'UTC') return;
+                        const opt = document.createElement('option');
+                        opt.value = tz;
+                        opt.textContent = tz;
+                        select.appendChild(opt);
+                    });
+                } catch (e) {
+                    console.warn("Intl timezone error:", e);
+                }
+            }
+        }
+
+        // Init Timezones
+        populateTimezones();
 
         // ... existing clearLogs ...
 
