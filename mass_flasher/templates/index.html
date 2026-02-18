@@ -361,17 +361,24 @@
 
         <!-- Repository Status Card -->
         <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h2>{{ t.repo_status_title }}</h2>
-                <button class="secondary" onclick="loadRepoStatus()" style="width:auto; font-size: 0.8em;">🔄
-                    {{ t.refresh_btn }}</button>
-            </div>
-            <div id="repo-info" style="font-size: 0.9em; color: #ccc; margin-bottom: 15px;">
-                {{ t.loading_text }}
-            </div>
-            <div
-                style="max-height: 200px; overflow-y: auto; background: #111; padding: 10px; border-radius: 4px; font-family: monospace;">
-                <ul id="file-list" style="list-style: none; padding-left: 0; margin: 0;"></ul>
+            <h2 style="margin-bottom: 10px;">{{ t.repo_status_title }}</h2>
+            <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: start;">
+                <!-- Left: Status Info -->
+                <div id="repo-info" style="flex: 1; min-width: 300px; font-size: 0.9em; color: #ccc;">
+                    {{ t.loading_text }}
+                </div>
+
+                <!-- Right: Files and Toolbar -->
+                <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 10px;">
+                    <div style="text-align: right;">
+                        <button class="secondary" onclick="loadRepoStatus()"
+                            style="width:auto; font-size: 0.8em; padding: 5px 10px;">🔄 {{ t.refresh_btn }}</button>
+                    </div>
+                    <div
+                        style="max-height: 140px; overflow-y: auto; background: #111; padding: 10px; border-radius: 4px; font-family: monospace;">
+                        <ul id="file-list" style="list-style: none; padding-left: 0; margin: 0;"></ul>
+                    </div>
+                </div>
             </div>
         </div>
 

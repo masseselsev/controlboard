@@ -648,7 +648,7 @@ def logout():
     return redirect(url_for('login'))
 
 # --- CONFIG & VERSION ---
-APP_VERSION = "1.2.5"
+APP_VERSION = "1.2.6"
 
 def get_available_ips():
     """Returns a list of all IPv4 addresses on the host."""
