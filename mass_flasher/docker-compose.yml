@@ -6,8 +6,9 @@ services:
     container_name: mass_flasher_app
     privileged: true
     user: root
-    ports:
-      - "5000:5000"
+    # ports:
+    #   - "5000:5000"
+    network_mode: "host"
     restart: unless-stopped
     volumes:
       - ./data:/app/data

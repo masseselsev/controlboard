@@ -13,6 +13,7 @@ from ssh_utils import FlashWorker, parse_ip_ranges
 import git
 import threading
 import socket  # Added for IP detection
+import subprocess # For hostname -I
 
 # --- REPO CACHE SETTINGS ---
 # Determine REPO_CACHE_DIR based on environment
@@ -643,6 +644,40 @@ def logout():
 # --- CONFIG & VERSION ---
 APP_VERSION = "1.2.1"
 
+def get_available_ips():
+    """Returns a list of all IPv4 addresses on the host."""
+    ips = []
+    try:
+        # Method 1: hostname -I (Debian/Ubuntu)
+        result = subprocess.check_output(['hostname', '-I'], timeout=2).decode().strip()
+        ips.extend(result.split())
+    except:
+        pass
+        
+    try:
+        # Method 2: socket (Fallback main IP)
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0)
+        try:
+            # doesn't even have to be reachable
+            s.connect(('10.254.254.254', 1))
+            ip = s.getsockname()[0]
+            if ip not in ips:
+                ips.append(ip)
+        except Exception:
+            pass
+        finally:
+            s.close()
+    except:
+        pass
+        
+    # Remove duplicates and loopback
+    unique_ips = []
+    for ip in ips:
+        if ip and not ip.startswith('127.') and ip not in unique_ips:
+            unique_ips.append(ip)
+    return unique_ips
+
 @app.route('/')
 @login_required
 def index():
@@ -650,7 +685,16 @@ def index():
     lang = config.get('language', 'en')
     t = TRANSLATIONS.get(lang, TRANSLATIONS['en'])
     available_languages = {"en": "English", "ru": "Русский"}
-    return render_template('index.html', user=session['user'], version=APP_VERSION, t=t, current_lang=lang, available_languages=available_languages)
+    
+    local_ips = get_available_ips()
+    
+    return render_template('index.html', 
+                          user=session['user'], 
+                          version=APP_VERSION, 
+                          t=t, 
+                          current_lang=lang, 
+                          available_languages=available_languages,
+                          local_ips=local_ips)
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required

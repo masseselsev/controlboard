@@ -341,7 +341,12 @@
 
                     <label for="advertisedIp" style="display:block; margin-top:10px; margin-bottom:5px;">{{
                         t.advertised_ip_label }}:</label>
-                    <input type="text" id="advertisedIp" placeholder="{{ t.advertised_ip_placeholder }}">
+                    <input type="text" id="advertisedIp" list="ip-list" placeholder="{{ t.advertised_ip_placeholder }}">
+                    <datalist id="ip-list">
+                        {% for ip in local_ips %}
+                        <option value="{{ ip }}">{{ ip }} (Local)</option>
+                        {% endfor %}
+                    </datalist>
                     <div style="font-size: 0.8em; color: #888; margin-top: 2px;">
                         {{ t.advertised_ip_desc }}
                     </div>
