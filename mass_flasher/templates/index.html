@@ -547,6 +547,7 @@
     </div>
 
     <script>
+        const T = {{ t | tojson }};
         const tabsHeader = document.getElementById('tabs-header');
         const tabsContent = document.getElementById('tabs-content');
         let knownIps = new Set();
@@ -834,862 +835,860 @@
                 .finally(() => {
                     setTimeout(() => { if (btn) btn.disabled = false; }, 2000);
                 });
-        }
+            // ... existing clearLogs ...
 
-        // ... existing clearLogs ...
+            function loadRepoStatus() {
+                const infoDiv = document.getElementById('repo-info');
+                const fileList = document.getElementById('file-list');
 
-        function loadRepoStatus() {
-            const infoDiv = document.getElementById('repo-info');
-            const fileList = document.getElementById('file-list');
+                infoDiv.innerHTML = T.refreshing_text;
 
-            infoDiv.innerHTML = T.refreshing_text;
-
-            // 1. Get Status
-            fetch('/api/repo/status')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.exists) {
-                        infoDiv.innerHTML = `
+                // 1. Get Status
+                fetch('/api/repo/status')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.exists) {
+                            infoDiv.innerHTML = `
                             <div><b>${T.repo_branch}</b> ${data.branch}</div>
                             <div><b>${T.repo_commit}</b> ${data.commit}</div>
                             <div><b>${T.repo_date}</b> ${data.date}</div>
                             <div><b>${T.repo_synced}</b> ${data.last_synced || T.unknown_text}</div>
                             <div><b>${T.repo_msg}</b> ${data.message}</div>
                         `;
-                    } else {
-                        infoDiv.innerHTML = `<span style="color:orange">${T.repo_not_init}</span>`;
-                    }
-                })
-                .catch(err => {
-                    infoDiv.innerHTML = `<span style="color:red">${T.error_prefix}: ${err}</span>`;
-                });
+                        } else {
+                            infoDiv.innerHTML = `<span style="color:orange">${T.repo_not_init}</span>`;
+                        }
+                    })
+                    .catch(err => {
+                        infoDiv.innerHTML = `<span style="color:red">${T.error_prefix}: ${err}</span>`;
+                    });
 
-            // 2. Get Files (Filtered View)
-            // First fetch root
-            fetch('/api/repo/list')
-                .then(res => res.json())
-                .then(async (files) => {
-                    fileList.innerHTML = '';
-                    if (files.length === 0) {
-                        fileList.innerHTML = `<li>(${T.no_files_found})</li>`;
-                        return;
-                    }
+                // 2. Get Files (Filtered View)
+                // First fetch root
+                fetch('/api/repo/list')
+                    .then(res => res.json())
+                    .then(async (files) => {
+                        fileList.innerHTML = '';
+                        if (files.length === 0) {
+                            fileList.innerHTML = `<li>(${T.no_files_found})</li>`;
+                            return;
+                        }
 
-                    // Filter dotfiles
-                    const visibleFiles = files.filter(f => !f.name.startsWith('.'));
+                        // Filter dotfiles
+                        const visibleFiles = files.filter(f => !f.name.startsWith('.'));
 
-                    // Check for 'controlboard' directory
-                    const controlBoardDir = visibleFiles.find(f => f.name === 'controlboard' && f.type === 'dir');
+                        // Check for 'controlboard' directory
+                        const controlBoardDir = visibleFiles.find(f => f.name === 'controlboard' && f.type === 'dir');
 
-                    if (controlBoardDir) {
-                        // If controlboard exists, fetch ITS content too
-                        try {
-                            const subRes = await fetch('/api/repo/list?path=controlboard');
-                            const subFiles = await subRes.json();
+                        if (controlBoardDir) {
+                            // If controlboard exists, fetch ITS content too
+                            try {
+                                const subRes = await fetch('/api/repo/list?path=controlboard');
+                                const subFiles = await subRes.json();
 
-                            // Add Header for root
-                            // fileList.innerHTML += `<li style="color:#aaa; border-bottom:1px solid #333; margin-bottom:5px;">Root:</li>`;
+                                // Add Header for root
+                                // fileList.innerHTML += `<li style="color:#aaa; border-bottom:1px solid #333; margin-bottom:5px;">Root:</li>`;
 
-                            // Show only Setup script if present, or all non-dotfiles
-                            const setupScript = subFiles.find(f => f.name === 'setup.sh');
+                                // Show only Setup script if present, or all non-dotfiles
+                                const setupScript = subFiles.find(f => f.name === 'setup.sh');
 
-                            if (setupScript) {
-                                fileList.innerHTML += `
+                                if (setupScript) {
+                                    fileList.innerHTML += `
                                 <li style="background:#1e1e1e; padding:5px; margin-bottom:5px; border-left:3px solid #50fa7b;">
                                     <div style="font-weight:bold; color:#fff;">✅ ${T.ready_to_flash}</div>
                                     <div style="font-size:0.9em; color:#ccc;">${T.found_text}: <span style="color:#50fa7b">controlboard/setup.sh</span></div>
                                 </li>`;
+                                }
+
+                                // List valid source files in controlboard
+                                subFiles.filter(f => !f.name.startsWith('.') && f.name !== 'setup.sh').forEach(f => {
+                                    renderFileItem(f, 'controlboard/', fileList);
+                                });
+
+                            } catch (e) {
+                                console.error("Failed to load subdir", e);
                             }
-
-                            // List valid source files in controlboard
-                            subFiles.filter(f => !f.name.startsWith('.') && f.name !== 'setup.sh').forEach(f => {
-                                renderFileItem(f, 'controlboard/', fileList);
-                            });
-
-                        } catch (e) {
-                            console.error("Failed to load subdir", e);
+                        } else {
+                            // Just list root files if controlboard not found
+                            visibleFiles.forEach(f => renderFileItem(f, '', fileList));
                         }
-                    } else {
-                        // Just list root files if controlboard not found
-                        visibleFiles.forEach(f => renderFileItem(f, '', fileList));
-                    }
-                });
-        }
-
-        function renderFileItem(f, pathPrefix, container) {
-            const li = document.createElement('li');
-            const icon = f.type === 'dir' ? 'dv ' : '📄 ';
-            const displayName = pathPrefix + f.name;
-
-            if (f.type === 'file') {
-                li.innerHTML = `${icon} <a href="${f.download_url}" target="_blank" style="color:#d4d4d4; text-decoration:none;">${displayName}</a>`;
-            } else {
-                li.innerHTML = `${icon} ${displayName}`;
-                li.style.color = '#888';
-            }
-            container.appendChild(li);
-        }
-
-        // Init
-        const currentHost = window.location.hostname;
-        // If localhost, force user to see placeholder
-        if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
-            const advInput = document.getElementById('advertisedIp');
-            if (advInput) advInput.value = currentHost;
-        } else {
-            const advInput = document.getElementById('advertisedIp');
-            if (advInput) advInput.placeholder = T.advertised_ip_placeholder_required;
-            // Make label red to draw attention
-            const label = document.querySelector('label[for="advertisedIp"]') || document.evaluate("//label[contains(., 'Advertised')]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-            if (label) label.style.color = "#ff4444";
-        }
-
-        loadRepoStatus();
-        loadQuickActionsFromServer();
-
-        function clearLogs() {
-            // Clear content of all containers
-            document.querySelectorAll('.log-container').forEach(c => c.innerHTML = '');
-            processedMessages.clear(); // Reset deduplication cache
-
-            // Clear server history
-            fetch('/api/logs/clear', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    console.log("Logs cleared:", data);
-                });
-        }
-
-        // Settings Logic matches previous...
-        const modal = document.getElementById("settingsModal");
-
-        function openSettings() {
-            // console.log("Opening settings...");
-            fetch('/settings')
-                .then(res => res.json())
-                .then(data => {
-                    try {
-                        document.getElementById('tel_token').value = data.telegram_token || '';
-                        document.getElementById('tel_chat_id').value = data.telegram_chat_id || '';
-
-                        const langEl = document.getElementById('user_lang');
-                        if (langEl) langEl.value = data.language || 'en';
-
-                        document.getElementById('settingsModal').style.display = "block";
-                    } catch (e) {
-                        alert("Error opening settings: " + e);
-                        console.error(e);
-                    }
-                })
-                .catch(err => alert("Failed to load settings: " + err));
-        }
-
-        function closeSettings() {
-            modal.style.display = "none";
-        }
-
-        function saveSettings() {
-            const token = document.getElementById('tel_token').value;
-            const chatId = document.getElementById('tel_chat_id').value;
-            const lang = document.getElementById('user_lang').value;
-
-            fetch('/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `telegram_token=${encodeURIComponent(token)}&telegram_chat_id=${encodeURIComponent(chatId)}&language=${encodeURIComponent(lang)}`
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'saved') {
-                        document.getElementById('settingsModal').style.display = 'none';
-                        // Reload to apply language
-                        if (lang !== '{{ current_lang }}') {
-                            window.location.reload();
-                        }
-                    } else {
-                        alert(T.error_saving_settings);
-                    }
-                });
-        }
-
-
-        function openDumpModal() {
-            // Check connection first? - No strict need, backend rejects. But better UX if we fetch commands.
-            fetch('/api/console/commands')
-                .then(res => res.json())
-                .then(data => {
-                    const list = document.getElementById('dump-list');
-                    list.innerHTML = '';
-
-                    // Filter just READ commands
-                    const readCmds = data.filter(c => c.value.startsWith('read '));
-
-                    if (readCmds.length === 0) {
-                        list.innerHTML = `<div style="grid-column:span 3;">${T.no_read_commands_found}</div>`;
-                    }
-
-                    readCmds.forEach(cmd => {
-                        const name = cmd.value.replace('read ', '');
-                        const div = document.createElement('div');
-                        div.innerHTML = `
-                            <label style="font-weight:normal; display:flex; align-items:center;">
-                                <input type="checkbox" name="dump-chk" value="${name}" style="width:auto; margin-right:5px;"> 
-                                ${name}
-                            </label>
-                        `;
-                        list.appendChild(div);
                     });
-
-                    document.getElementById('dumpModal').style.display = 'block';
-                });
-        }
-
-        function toggleDumpChecks(state) {
-            document.querySelectorAll('input[name="dump-chk"]').forEach(box => box.checked = state);
-        }
-
-        function executeDump() {
-            const boxes = document.querySelectorAll('input[name="dump-chk"]:checked');
-            const commands = Array.from(boxes).map(b => b.value);
-
-            if (commands.length === 0) {
-                alert(T.alert_select_param);
-                return;
             }
 
-            const btn = document.getElementById('btn-exec-dump');
-            const originalText = btn.innerText;
-            btn.innerText = T.reading_please_wait;
-            btn.disabled = true;
+            function renderFileItem(f, pathPrefix, container) {
+                const li = document.createElement('li');
+                const icon = f.type === 'dir' ? 'dv ' : '📄 ';
+                const displayName = pathPrefix + f.name;
 
-            fetch('/api/console/batch_read', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ commands: commands })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        alert(T.error_prefix + data.error);
-                    } else {
-                        document.getElementById('dumpModal').style.display = 'none';
-                        document.getElementById('dump-output').value = data.text;
-                        document.getElementById('dumpResultModal').style.display = 'block';
-                    }
-                })
-                .catch(e => alert(T.connection_error_prefix + e))
-                .finally(() => {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                });
-        }
-
-        function copyDump() {
-            const copyText = document.getElementById("dump-output");
-            copyText.select();
-            document.execCommand("copy"); // Legacy but works widely
-            // Or navigator.clipboard.writeText(copyText.value);
-        }
-
-        function downloadDump() {
-            const text = document.getElementById("dump-output").value;
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            // Generate filename with timestamp
-            const now = new Date();
-            const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            a.download = `dump_${ts}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-        }
-
-
-        function openDumpModal() {
-            // Check connection first? - No strict need, backend rejects. But better UX if we fetch commands.
-            fetch('/api/console/commands')
-                .then(res => res.json())
-                .then(data => {
-                    const list = document.getElementById('dump-list');
-                    list.innerHTML = '';
-
-                    // Filter just READ commands
-                    const readCmds = data.filter(c => c.value.startsWith('read '));
-
-                    if (readCmds.length === 0) {
-                        list.innerHTML = `<div style="grid-column:span 3;">${T.no_read_commands_found}</div>`;
-                    }
-
-                    readCmds.forEach(cmd => {
-                        const name = cmd.value.replace('read ', '');
-                        const div = document.createElement('div');
-                        div.innerHTML = `
-                            <label style="font-weight:normal; display:flex; align-items:center;">
-                                <input type="checkbox" name="dump-chk" value="${name}" style="width:auto; margin-right:5px;"> 
-                                ${name}
-                            </label>
-                        `;
-                        list.appendChild(div);
-                    });
-
-                    document.getElementById('dumpModal').style.display = 'block';
-                });
-        }
-
-        function toggleDumpChecks(state) {
-            document.querySelectorAll('input[name="dump-chk"]').forEach(box => box.checked = state);
-        }
-
-        function executeDump() {
-            const boxes = document.querySelectorAll('input[name="dump-chk"]:checked');
-            const commands = Array.from(boxes).map(b => b.value);
-
-            if (commands.length === 0) {
-                alert(T.alert_select_param);
-                return;
-            }
-
-            const btn = document.getElementById('btn-exec-dump');
-            const originalText = btn.innerText;
-
-            // Auto-connect logic
-            let connectPromise = Promise.resolve();
-            if (!isConnected) {
-                const ipInput = document.getElementById('console-ip');
-                if (ipInput && ipInput.value.trim()) {
-                    // console.log("Auto-connecting for dump...");
-                    btn.innerText = T.connecting_text;
-                    btn.disabled = true;
-                    connectPromise = connectConsole();
+                if (f.type === 'file') {
+                    li.innerHTML = `${icon} <a href="${f.download_url}" target="_blank" style="color:#d4d4d4; text-decoration:none;">${displayName}</a>`;
                 } else {
-                    alert(T.not_connected_no_ip);
+                    li.innerHTML = `${icon} ${displayName}`;
+                    li.style.color = '#888';
+                }
+                container.appendChild(li);
+            }
+
+            // Init
+            const currentHost = window.location.hostname;
+            // If localhost, force user to see placeholder
+            if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+                const advInput = document.getElementById('advertisedIp');
+                if (advInput) advInput.value = currentHost;
+            } else {
+                const advInput = document.getElementById('advertisedIp');
+                if (advInput) advInput.placeholder = T.advertised_ip_placeholder_required;
+                // Make label red to draw attention
+                const label = document.querySelector('label[for="advertisedIp"]') || document.evaluate("//label[contains(., 'Advertised')]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                if (label) label.style.color = "#ff4444";
+            }
+
+            loadRepoStatus();
+            loadQuickActionsFromServer();
+
+            function clearLogs() {
+                // Clear content of all containers
+                document.querySelectorAll('.log-container').forEach(c => c.innerHTML = '');
+                processedMessages.clear(); // Reset deduplication cache
+
+                // Clear server history
+                fetch('/api/logs/clear', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        console.log("Logs cleared:", data);
+                    });
+            }
+
+            // Settings Logic matches previous...
+            const modal = document.getElementById("settingsModal");
+
+            function openSettings() {
+                // console.log("Opening settings...");
+                fetch('/settings')
+                    .then(res => res.json())
+                    .then(data => {
+                        try {
+                            document.getElementById('tel_token').value = data.telegram_token || '';
+                            document.getElementById('tel_chat_id').value = data.telegram_chat_id || '';
+
+                            const langEl = document.getElementById('user_lang');
+                            if (langEl) langEl.value = data.language || 'en';
+
+                            document.getElementById('settingsModal').style.display = "block";
+                        } catch (e) {
+                            alert("Error opening settings: " + e);
+                            console.error(e);
+                        }
+                    })
+                    .catch(err => alert("Failed to load settings: " + err));
+            }
+
+            function closeSettings() {
+                modal.style.display = "none";
+            }
+
+            function saveSettings() {
+                const token = document.getElementById('tel_token').value;
+                const chatId = document.getElementById('tel_chat_id').value;
+                const lang = document.getElementById('user_lang').value;
+
+                fetch('/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `telegram_token=${encodeURIComponent(token)}&telegram_chat_id=${encodeURIComponent(chatId)}&language=${encodeURIComponent(lang)}`
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'saved') {
+                            document.getElementById('settingsModal').style.display = 'none';
+                            // Reload to apply language
+                            if (lang !== '{{ current_lang }}') {
+                                window.location.reload();
+                            }
+                        } else {
+                            alert(T.error_saving_settings);
+                        }
+                    });
+            }
+
+
+            function openDumpModal() {
+                // Check connection first? - No strict need, backend rejects. But better UX if we fetch commands.
+                fetch('/api/console/commands')
+                    .then(res => res.json())
+                    .then(data => {
+                        const list = document.getElementById('dump-list');
+                        list.innerHTML = '';
+
+                        // Filter just READ commands
+                        const readCmds = data.filter(c => c.value.startsWith('read '));
+
+                        if (readCmds.length === 0) {
+                            list.innerHTML = `<div style="grid-column:span 3;">${T.no_read_commands_found}</div>`;
+                        }
+
+                        readCmds.forEach(cmd => {
+                            const name = cmd.value.replace('read ', '');
+                            const div = document.createElement('div');
+                            div.innerHTML = `
+                            <label style="font-weight:normal; display:flex; align-items:center;">
+                                <input type="checkbox" name="dump-chk" value="${name}" style="width:auto; margin-right:5px;"> 
+                                ${name}
+                            </label>
+                        `;
+                            list.appendChild(div);
+                        });
+
+                        document.getElementById('dumpModal').style.display = 'block';
+                    });
+            }
+
+            function toggleDumpChecks(state) {
+                document.querySelectorAll('input[name="dump-chk"]').forEach(box => box.checked = state);
+            }
+
+            function executeDump() {
+                const boxes = document.querySelectorAll('input[name="dump-chk"]:checked');
+                const commands = Array.from(boxes).map(b => b.value);
+
+                if (commands.length === 0) {
+                    alert(T.alert_select_param);
                     return;
                 }
-            }
 
-            connectPromise.then(() => {
-                if (!isConnected) {
-                    throw new Error(T.connection_failed);
-                }
-
+                const btn = document.getElementById('btn-exec-dump');
+                const originalText = btn.innerText;
                 btn.innerText = T.reading_please_wait;
                 btn.disabled = true;
 
-                return fetch('/api/console/batch_read', {
+                fetch('/api/console/batch_read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ commands: commands })
-                });
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        alert(T.error_prefix + data.error);
-                    } else {
-                        document.getElementById('dumpModal').style.display = 'none';
-                        document.getElementById('dump-output').value = data.text;
-                        document.getElementById('dumpResultModal').style.display = 'block';
-                    }
                 })
-                .catch(e => {
-                    if (e.message !== T.connection_failed) {
-                        alert(T.operation_error_prefix + e);
-                    }
-                })
-                .finally(() => {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                });
-        }
-
-        function copyDump() {
-            const copyText = document.getElementById("dump-output");
-            copyText.select();
-            document.execCommand("copy"); // Legacy but works widely
-            // Or navigator.clipboard.writeText(copyText.value);
-        }
-
-        function downloadDump() {
-            const text = document.getElementById("dump-output").value;
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            // Generate filename with timestamp
-            const now = new Date();
-            const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            a.download = `dump_${ts}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-        }
-
-        window.onclick = function (event) {
-            if (event.target == modal) {
-                modal.style.display = "none";
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(T.error_prefix + data.error);
+                        } else {
+                            document.getElementById('dumpModal').style.display = 'none';
+                            document.getElementById('dump-output').value = data.text;
+                            document.getElementById('dumpResultModal').style.display = 'block';
+                        }
+                    })
+                    .catch(e => alert(T.connection_error_prefix + e))
+                    .finally(() => {
+                        btn.innerText = originalText;
+                        btn.disabled = false;
+                    });
             }
-        }
-        // Shift+Enter to submit
-        document.getElementById('ipInput').addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' && e.shiftKey) {
-                e.preventDefault();
-                startFlash();
+
+            function copyDump() {
+                const copyText = document.getElementById("dump-output");
+                copyText.select();
+                document.execCommand("copy"); // Legacy but works widely
+                // Or navigator.clipboard.writeText(copyText.value);
             }
-        });
 
-        // --- CONSOLE LOGIC ---
-        let cmdHistory = [];
-        let historyIndex = -1;
+            function downloadDump() {
+                const text = document.getElementById("dump-output").value;
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                // Generate filename with timestamp
+                const now = new Date();
+                const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                a.download = `dump_${ts}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
 
-        function refreshPorts() {
-            const sel = document.getElementById('console-port');
-            sel.innerHTML = `<option>${T.scanning_text}...</option>`;
-            fetch('/api/console/ports')
-                .then(res => res.json())
-                .then(ports => {
-                    sel.innerHTML = '';
-                    if (ports.length === 0) {
-                        sel.innerHTML = `<option value="">${T.no_ports_found}</option>`;
-                    } else {
-                        ports.forEach(p => {
-                            const opt = document.createElement('option');
-                            opt.value = p;
-                            opt.textContent = p;
-                            sel.appendChild(opt);
+
+            function openDumpModal() {
+                // Check connection first? - No strict need, backend rejects. But better UX if we fetch commands.
+                fetch('/api/console/commands')
+                    .then(res => res.json())
+                    .then(data => {
+                        const list = document.getElementById('dump-list');
+                        list.innerHTML = '';
+
+                        // Filter just READ commands
+                        const readCmds = data.filter(c => c.value.startsWith('read '));
+
+                        if (readCmds.length === 0) {
+                            list.innerHTML = `<div style="grid-column:span 3;">${T.no_read_commands_found}</div>`;
+                        }
+
+                        readCmds.forEach(cmd => {
+                            const name = cmd.value.replace('read ', '');
+                            const div = document.createElement('div');
+                            div.innerHTML = `
+                            <label style="font-weight:normal; display:flex; align-items:center;">
+                                <input type="checkbox" name="dump-chk" value="${name}" style="width:auto; margin-right:5px;"> 
+                                ${name}
+                            </label>
+                        `;
+                            list.appendChild(div);
                         });
-                    }
-                })
-                .catch(err => {
-                    sel.innerHTML = `<option value="">${T.error_scanning}</option>`;
-                });
-        }
 
-        function refreshCommands() {
-            const dl = document.getElementById('cmd-list');
-            fetch('/api/console/commands')
-                .then(res => res.json())
-                .then(cmds => {
-                    dl.innerHTML = '';
-                    cmds.forEach(c => {
-                        const opt = document.createElement('option');
-                        opt.value = c.value;
-                        opt.label = c.label; // text content? datalist uses value/label
-                        // opt.textContent = c.desc; // visible in some browsers
-                        dl.appendChild(opt);
+                        document.getElementById('dumpModal').style.display = 'block';
                     });
-                });
-        }
-
-        function appendConsole(text, type = 'normal') {
-            const out = document.getElementById('console-output');
-            // Use span for normal stream to allow inline prompts/echo
-            // Use div for system messages (error, dim) to ensure they stand out
-            const isStream = (type === 'normal' || type === 'cmd');
-            const el = document.createElement(isStream ? 'span' : 'div');
-            el.textContent = text;
-            if (type === 'cmd') el.style.color = '#50fa7b';
-            if (type === 'error') el.style.color = '#ff5555';
-            if (type === 'dim') el.style.color = '#666';
-            out.appendChild(el);
-            out.scrollTop = out.scrollHeight;
-        }
-
-        // Initial Load
-        refreshCommands();
-
-        let isConnected = false;
-
-        function updateConnectionState(connected, msg = "") {
-            isConnected = connected;
-            const statusEl = document.getElementById('console-status');
-            const btn = document.getElementById('console-connect-btn');
-
-            if (connected) {
-                statusEl.textContent = T.connected_status;
-                statusEl.style.color = "#98c379";
-                btn.textContent = "❌ " + T.disconnect_btn;
-                btn.onclick = disconnectConsole;
-                btn.style.background = "#e06c75";
-                btn.style.color = "white";
-                appendConsole(msg);
-            } else {
-                statusEl.textContent = T.disconnected_status;
-                statusEl.style.color = "#666";
-                btn.textContent = "🔌 " + T.connect_btn;
-                btn.onclick = connectConsole;
-                btn.style.background = ""; // default
-                btn.style.color = "";
-                if (msg) appendConsole(msg, 'dim');
-            }
-        }
-
-        function connectConsole() {
-            const ip = document.getElementById('console-ip').value;
-            const sshPort = document.getElementById('console-ssh-port').value || "2222";
-            const user = document.getElementById('console-user').value;
-            const pass = document.getElementById('console-pass').value;
-
-            if (!ip) {
-                appendConsole(`[${T.error_text}] ${T.ip_required}`, "error");
-                return Promise.reject(T.ip_required);
             }
 
-            appendConsole(`[${T.system_text}] ${T.connecting_to} ${ip}:${sshPort}...`, "dim");
+            function toggleDumpChecks(state) {
+                document.querySelectorAll('input[name="dump-chk"]').forEach(box => box.checked = state);
+            }
 
-            return fetch('/api/console/connect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ip: ip, ssh_port: sshPort, username: user, password: pass })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        appendConsole(`[${T.error_text}] ${data.error}`, "error");
-                        // auto disconnect if session lost?
-                        if (data.error.includes(T.session_lost)) {
-                            updateConnectionState(false);
-                        }
-                        throw new Error(data.error);
+            function executeDump() {
+                const boxes = document.querySelectorAll('input[name="dump-chk"]:checked');
+                const commands = Array.from(boxes).map(b => b.value);
+
+                if (commands.length === 0) {
+                    alert(T.alert_select_param);
+                    return;
+                }
+
+                const btn = document.getElementById('btn-exec-dump');
+                const originalText = btn.innerText;
+
+                // Auto-connect logic
+                let connectPromise = Promise.resolve();
+                if (!isConnected) {
+                    const ipInput = document.getElementById('console-ip');
+                    if (ipInput && ipInput.value.trim()) {
+                        // console.log("Auto-connecting for dump...");
+                        btn.innerText = T.connecting_text;
+                        btn.disabled = true;
+                        connectPromise = connectConsole();
                     } else {
-                        updateConnectionState(true, data.output);
-                        return data;
+                        alert(T.not_connected_no_ip);
+                        return;
                     }
+                }
+
+                connectPromise.then(() => {
+                    if (!isConnected) {
+                        throw new Error(T.connection_failed);
+                    }
+
+                    btn.innerText = T.reading_please_wait;
+                    btn.disabled = true;
+
+                    return fetch('/api/console/batch_read', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ commands: commands })
+                    });
                 })
-                .catch(err => {
-                    // Only append if it wasn't already appended
-                    if (!err.message || !err.message.startsWith(`[${T.error_text}]`)) {
-                        appendConsole(`[${T.network_error}] ${err}`, "error");
-                    }
-                    throw err;
-                });
-        }
-
-        function disconnectConsole() {
-            fetch('/api/console/disconnect', { method: 'POST' })
-                .then(res => res.json())
-                .then(data => {
-                    updateConnectionState(false, `[${T.system_text}] ${T.disconnected_message}.`);
-                });
-        }
-
-        function execConsole(cmd) {
-            // If passed command (button click) or from input
-            const input = document.getElementById('console-input');
-            if (!cmd && input) cmd = input.value;
-            if (!cmd) return;
-
-            // If not connected, warn user (unless it's a local util?) 
-            // Actually request prompts for connection first.
-            if (!isConnected) {
-                appendConsole(`[${T.info_text}] ${T.please_connect_first}.`, "dim");
-                return;
-            }
-
-            // appendConsole(`> ${cmd}`); // DISABLE LOCAL ECHO to prevent duplication
-
-
-            // History
-            if (cmdHistory[cmdHistory.length - 1] !== cmd) {
-                cmdHistory.push(cmd);
-            }
-            historyIndex = cmdHistory.length;
-
-            if (input) input.value = '';
-
-            fetch('/api/console/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cmd: cmd })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        appendConsole(`[${T.error_text}] ${data.error}`, 'error');
-                        // auto disconnect if session lost?
-                        if (data.error.includes(T.session_lost)) {
-                            updateConnectionState(false);
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.error) {
+                            alert(T.error_prefix + data.error);
+                        } else {
+                            document.getElementById('dumpModal').style.display = 'none';
+                            document.getElementById('dump-output').value = data.text;
+                            document.getElementById('dumpResultModal').style.display = 'block';
                         }
-                    } else {
-                        if (data.output) appendConsole(data.output);
-                    }
-                })
-                .catch(err => {
-                    appendConsole(`[${T.network_error}] ${err}`, 'error');
-                });
-        }
+                    })
+                    .catch(e => {
+                        if (e.message !== T.connection_failed) {
+                            alert(T.operation_error_prefix + e);
+                        }
+                    })
+                    .finally(() => {
+                        btn.innerText = originalText;
+                        btn.disabled = false;
+                    });
+            }
 
-        // Input Handler
-        const input = document.getElementById('console-input');
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                const val = this.value;
-                if (!val) return;
+            function copyDump() {
+                const copyText = document.getElementById("dump-output");
+                copyText.select();
+                document.execCommand("copy"); // Legacy but works widely
+                // Or navigator.clipboard.writeText(copyText.value);
+            }
 
-                const options = document.getElementById('cmd-list').options;
-                // Simple prefix match
-                for (let i = 0; i < options.length; i++) {
-                    if (options[i].value.startsWith(val)) {
-                        this.value = options[i].value;
-                        break;
-                    }
-                }
-            } else if (e.key === 'Enter') {
-                const cmd = this.value;
-                if (cmd) {
-                    execConsole(cmd);
-                    this.value = '';
-                }
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (historyIndex > 0) {
-                    historyIndex--;
-                    this.value = cmdHistory[historyIndex];
-                }
-            } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (historyIndex < cmdHistory.length - 1) {
-                    historyIndex++;
-                    this.value = cmdHistory[historyIndex];
-                } else {
-                    historyIndex = cmdHistory.length;
-                    this.value = '';
+            function downloadDump() {
+                const text = document.getElementById("dump-output").value;
+                const blob = new Blob([text], { type: 'text/plain' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                // Generate filename with timestamp
+                const now = new Date();
+                const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+                a.download = `dump_${ts}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
+
+            window.onclick = function (event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
                 }
             }
-        });
-
-        // Initialize Console        // Initial Load
-        refreshPorts(); // Still keep this potentially for future features or removal clean up
-        refreshCommands();
-
-        function testConnection() {
-            appendConsole(`--- ${T.testing_connection} ---`, "dim");
-            execConsole("read firmware_version");
-        }
-
-
-        // ... switchTab override ...
-        const oldSwitchTab = switchTab;
-        switchTab = function (safeIp) {
-            oldSwitchTab(safeIp);
-
-            // Handle Console Tab Visibility
-            const consoleDiv = document.getElementById('log-console');
-            const consoleBtn = document.querySelector('button[onclick="switchTab(\'console\')"]');
-
-            if (safeIp === 'console') {
-                // Hide others
-                document.querySelectorAll('.log-container').forEach(d => d.style.display = 'none'); // using display none for console logic override
-                document.querySelectorAll('.log-container.active').forEach(d => d.classList.remove('active')); // remove class based visibility
-
-                // Wait, existing logic uses class 'active' which sets display: block. 
-                // My console div has inline style display:none initially.
-                // Resetting logic:
-
-                // 1. Deactivate all buttons
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-
-                // 2. Activate Console Button
-                if (consoleBtn) consoleBtn.classList.add('active');
-
-                // 3. Hide all content
-                document.querySelectorAll('.log-container').forEach(d => {
-                    d.classList.remove('active');
-                    d.style.display = 'none'; // Ensure hidden
-                });
-
-                // 4. Show Console
-                consoleDiv.style.display = 'flex';
-                // Focus input
-                document.getElementById('console-input').focus();
-
-            } else {
-                // Determine if we need to hide console explicitly if coming FROM console
-                if (consoleDiv) consoleDiv.style.display = 'none';
-                if (consoleBtn) consoleBtn.classList.remove('active');
-
-                // Restore standard behavior visibility which relies on .active class (display:block)
-                // Note: The original switchTab adds .active to target div. 
-                // But since I added style="display:none" to console, standard CSS won't affect it, so good.
-                // But standard divs don't have inline styles, they depend on CSS.
-                // My override above 'forEach(d => d.style.display = none)' MIGHT break standard divs if I don't revert it.
-                // Standard divs rely on .active { display: block }.
-                // If I set inline display:none, class won't override it. 
-
-                // FIX: Remove inline display from standard divs
-                document.querySelectorAll('.log-container').forEach(d => {
-                    if (d.id !== 'log-console') d.style.display = '';
-                });
-            }
-        }
-        // Match local logic for scroll down
-        function scrollToBottom() {
-            const out = document.getElementById('console-output');
-            out.scrollTop = out.scrollHeight;
-        }
-
-        // --- QUICK ACTIONS ---
-        const DEFAULT_ACTIONS = [
-            'read temp',
-            'read humidity',
-            'read version_request',
-            'util CP2105_RST',
-            'write cam_filter >120',
-            'write cam_filter <120'
-        ];
-        let quickActions = DEFAULT_ACTIONS;
-
-        function renderQuickActions() {
-            const container = document.getElementById('quick-actions-toolbar');
-            container.innerHTML = '';
-
-            // Define colors for types if needed
-            const typeColors = {
-                'read': '#e06c75',
-                'write': '#d19a66',
-                'control': '#98c379',
-                'test': '#61afef',
-                'util': '#c678dd'
-            };
-
-            quickActions.forEach(cmd => {
-                const btn = document.createElement('button');
-                btn.className = 'console-btn';
-                // Short naming logic
-                let label = cmd.split(' ')[1] || cmd;
-                if (cmd === 'util CP2105_RST') label = T.reset_usb;
-                if (cmd === 'read version_request') label = T.version_short;
-                if (cmd === 'read humidity') label = T.humidity_short;
-                if (cmd === 'read temp') label = T.ext_temp_short;
-                if (cmd === 'write cam_filter >120') label = T.filter_gt_120;
-                if (cmd === 'write cam_filter <120') label = T.filter_lt_120;
-
-                btn.textContent = label;
-
-                const type = cmd.split(' ')[0];
-                btn.style.backgroundColor = typeColors[type] || '#5c6370';
-                // better contrast for light colors
-                if (['control', 'write'].includes(type) || label === T.humidity_short || label.startsWith(T.filter_prefix)) btn.style.color = 'black';
-
-                if (isDeleteMode) {
-                    if (cmd.includes('cam_filter')) {
-                        btn.style.opacity = '0.5';
-                        btn.style.cursor = 'not-allowed';
-                        btn.title = T.action_cannot_be_deleted;
-                        btn.onclick = (e) => e.stopPropagation();
-                    } else {
-                        btn.style.border = '2px solid #ff4444';
-                        btn.classList.add('delete-shake');
-                        btn.title = T.click_to_delete;
-                        btn.onclick = (e) => {
-                            e.stopPropagation();
-                            const newActions = quickActions.filter(x => x !== cmd);
-                            saveQuickActions(newActions);
-                        };
-                    }
-                } else {
-                    btn.onclick = () => execConsole(cmd);
+            // Shift+Enter to submit
+            document.getElementById('ipInput').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && e.shiftKey) {
+                    e.preventDefault();
+                    startFlash();
                 }
-
-                container.appendChild(btn);
             });
-        }
 
-        function openQuickActionsSetup() {
-            const modal = document.getElementById('quickActionsModal');
-            const list = document.getElementById('qa-list');
-            list.innerHTML = T.loading_text + '...';
-            modal.style.display = 'block';
+            // --- CONSOLE LOGIC ---
+            let cmdHistory = [];
+            let historyIndex = -1;
 
-            // Fetch commands if not loaded
-            fetch('/api/console/commands')
-                .then(res => res.json())
-                .then(cmds => {
-                    // Sort: Selected first, then Alphabetical
-                    cmds.sort((a, b) => {
-                        const aSelected = quickActions.includes(a.value);
-                        const bSelected = quickActions.includes(b.value);
-                        if (aSelected && !bSelected) return -1;
-                        if (!aSelected && bSelected) return 1;
-                        return a.value.localeCompare(b.value);
+            function refreshPorts() {
+                const sel = document.getElementById('console-port');
+                sel.innerHTML = `<option>${T.scanning_text}...</option>`;
+                fetch('/api/console/ports')
+                    .then(res => res.json())
+                    .then(ports => {
+                        sel.innerHTML = '';
+                        if (ports.length === 0) {
+                            sel.innerHTML = `<option value="">${T.no_ports_found}</option>`;
+                        } else {
+                            ports.forEach(p => {
+                                const opt = document.createElement('option');
+                                opt.value = p;
+                                opt.textContent = p;
+                                sel.appendChild(opt);
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        sel.innerHTML = `<option value="">${T.error_scanning}</option>`;
+                    });
+            }
+
+            function refreshCommands() {
+                const dl = document.getElementById('cmd-list');
+                fetch('/api/console/commands')
+                    .then(res => res.json())
+                    .then(cmds => {
+                        dl.innerHTML = '';
+                        cmds.forEach(c => {
+                            const opt = document.createElement('option');
+                            opt.value = c.value;
+                            opt.label = c.label; // text content? datalist uses value/label
+                            // opt.textContent = c.desc; // visible in some browsers
+                            dl.appendChild(opt);
+                        });
+                    });
+            }
+
+            function appendConsole(text, type = 'normal') {
+                const out = document.getElementById('console-output');
+                // Use span for normal stream to allow inline prompts/echo
+                // Use div for system messages (error, dim) to ensure they stand out
+                const isStream = (type === 'normal' || type === 'cmd');
+                const el = document.createElement(isStream ? 'span' : 'div');
+                el.textContent = text;
+                if (type === 'cmd') el.style.color = '#50fa7b';
+                if (type === 'error') el.style.color = '#ff5555';
+                if (type === 'dim') el.style.color = '#666';
+                out.appendChild(el);
+                out.scrollTop = out.scrollHeight;
+            }
+
+            // Initial Load
+            refreshCommands();
+
+            let isConnected = false;
+
+            function updateConnectionState(connected, msg = "") {
+                isConnected = connected;
+                const statusEl = document.getElementById('console-status');
+                const btn = document.getElementById('console-connect-btn');
+
+                if (connected) {
+                    statusEl.textContent = T.connected_status;
+                    statusEl.style.color = "#98c379";
+                    btn.textContent = "❌ " + T.disconnect_btn;
+                    btn.onclick = disconnectConsole;
+                    btn.style.background = "#e06c75";
+                    btn.style.color = "white";
+                    appendConsole(msg);
+                } else {
+                    statusEl.textContent = T.disconnected_status;
+                    statusEl.style.color = "#666";
+                    btn.textContent = "🔌 " + T.connect_btn;
+                    btn.onclick = connectConsole;
+                    btn.style.background = ""; // default
+                    btn.style.color = "";
+                    if (msg) appendConsole(msg, 'dim');
+                }
+            }
+
+            function connectConsole() {
+                const ip = document.getElementById('console-ip').value;
+                const sshPort = document.getElementById('console-ssh-port').value || "2222";
+                const user = document.getElementById('console-user').value;
+                const pass = document.getElementById('console-pass').value;
+
+                if (!ip) {
+                    appendConsole(`[${T.error_text}] ${T.ip_required}`, "error");
+                    return Promise.reject(T.ip_required);
+                }
+
+                appendConsole(`[${T.system_text}] ${T.connecting_to} ${ip}:${sshPort}...`, "dim");
+
+                return fetch('/api/console/connect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip: ip, ssh_port: sshPort, username: user, password: pass })
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.error) {
+                            appendConsole(`[${T.error_text}] ${data.error}`, "error");
+                            // auto disconnect if session lost?
+                            if (data.error.includes(T.session_lost)) {
+                                updateConnectionState(false);
+                            }
+                            throw new Error(data.error);
+                        } else {
+                            updateConnectionState(true, data.output);
+                            return data;
+                        }
+                    })
+                    .catch(err => {
+                        // Only append if it wasn't already appended
+                        if (!err.message || !err.message.startsWith(`[${T.error_text}]`)) {
+                            appendConsole(`[${T.network_error}] ${err}`, "error");
+                        }
+                        throw err;
+                    });
+            }
+
+            function disconnectConsole() {
+                fetch('/api/console/disconnect', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(data => {
+                        updateConnectionState(false, `[${T.system_text}] ${T.disconnected_message}.`);
+                    });
+            }
+
+            function execConsole(cmd) {
+                // If passed command (button click) or from input
+                const input = document.getElementById('console-input');
+                if (!cmd && input) cmd = input.value;
+                if (!cmd) return;
+
+                // If not connected, warn user (unless it's a local util?) 
+                // Actually request prompts for connection first.
+                if (!isConnected) {
+                    appendConsole(`[${T.info_text}] ${T.please_connect_first}.`, "dim");
+                    return;
+                }
+
+                // appendConsole(`> ${cmd}`); // DISABLE LOCAL ECHO to prevent duplication
+
+
+                // History
+                if (cmdHistory[cmdHistory.length - 1] !== cmd) {
+                    cmdHistory.push(cmd);
+                }
+                historyIndex = cmdHistory.length;
+
+                if (input) input.value = '';
+
+                fetch('/api/console/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cmd: cmd })
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.error) {
+                            appendConsole(`[${T.error_text}] ${data.error}`, 'error');
+                            // auto disconnect if session lost?
+                            if (data.error.includes(T.session_lost)) {
+                                updateConnectionState(false);
+                            }
+                        } else {
+                            if (data.output) appendConsole(data.output);
+                        }
+                    })
+                    .catch(err => {
+                        appendConsole(`[${T.network_error}] ${err}`, 'error');
+                    });
+            }
+
+            // Input Handler
+            const input = document.getElementById('console-input');
+            input.addEventListener('keydown', function (e) {
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const val = this.value;
+                    if (!val) return;
+
+                    const options = document.getElementById('cmd-list').options;
+                    // Simple prefix match
+                    for (let i = 0; i < options.length; i++) {
+                        if (options[i].value.startsWith(val)) {
+                            this.value = options[i].value;
+                            break;
+                        }
+                    }
+                } else if (e.key === 'Enter') {
+                    const cmd = this.value;
+                    if (cmd) {
+                        execConsole(cmd);
+                        this.value = '';
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (historyIndex > 0) {
+                        historyIndex--;
+                        this.value = cmdHistory[historyIndex];
+                    }
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (historyIndex < cmdHistory.length - 1) {
+                        historyIndex++;
+                        this.value = cmdHistory[historyIndex];
+                    } else {
+                        historyIndex = cmdHistory.length;
+                        this.value = '';
+                    }
+                }
+            });
+
+            // Initialize Console        // Initial Load
+            refreshPorts(); // Still keep this potentially for future features or removal clean up
+            refreshCommands();
+
+            function testConnection() {
+                appendConsole(`--- ${T.testing_connection} ---`, "dim");
+                execConsole("read firmware_version");
+            }
+
+
+            // ... switchTab override ...
+            const oldSwitchTab = switchTab;
+            switchTab = function (safeIp) {
+                oldSwitchTab(safeIp);
+
+                // Handle Console Tab Visibility
+                const consoleDiv = document.getElementById('log-console');
+                const consoleBtn = document.querySelector('button[onclick="switchTab(\'console\')"]');
+
+                if (safeIp === 'console') {
+                    // Hide others
+                    document.querySelectorAll('.log-container').forEach(d => d.style.display = 'none'); // using display none for console logic override
+                    document.querySelectorAll('.log-container.active').forEach(d => d.classList.remove('active')); // remove class based visibility
+
+                    // Wait, existing logic uses class 'active' which sets display: block. 
+                    // My console div has inline style display:none initially.
+                    // Resetting logic:
+
+                    // 1. Deactivate all buttons
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+
+                    // 2. Activate Console Button
+                    if (consoleBtn) consoleBtn.classList.add('active');
+
+                    // 3. Hide all content
+                    document.querySelectorAll('.log-container').forEach(d => {
+                        d.classList.remove('active');
+                        d.style.display = 'none'; // Ensure hidden
                     });
 
-                    list.innerHTML = '';
-                    cmds.forEach(c => {
-                        const div = document.createElement('div');
-                        const chk = document.createElement('input');
-                        chk.type = 'checkbox';
-                        chk.value = c.value;
-                        chk.checked = quickActions.includes(c.value);
-                        chk.id = 'qa-' + c.value.replace(/\s+/g, '-');
+                    // 4. Show Console
+                    consoleDiv.style.display = 'flex';
+                    // Focus input
+                    document.getElementById('console-input').focus();
 
-                        const lbl = document.createElement('label');
-                        lbl.htmlFor = chk.id;
-                        lbl.textContent = c.value;
-                        lbl.style.marginLeft = '5px';
-                        lbl.title = c.desc;
+                } else {
+                    // Determine if we need to hide console explicitly if coming FROM console
+                    if (consoleDiv) consoleDiv.style.display = 'none';
+                    if (consoleBtn) consoleBtn.classList.remove('active');
 
-                        div.appendChild(chk);
-                        div.appendChild(lbl);
-                        list.appendChild(div);
+                    // Restore standard behavior visibility which relies on .active class (display:block)
+                    // Note: The original switchTab adds .active to target div. 
+                    // But since I added style="display:none" to console, standard CSS won't affect it, so good.
+                    // But standard divs don't have inline styles, they depend on CSS.
+                    // My override above 'forEach(d => d.style.display = none)' MIGHT break standard divs if I don't revert it.
+                    // Standard divs rely on .active { display: block }.
+                    // If I set inline display:none, class won't override it. 
+
+                    // FIX: Remove inline display from standard divs
+                    document.querySelectorAll('.log-container').forEach(d => {
+                        if (d.id !== 'log-console') d.style.display = '';
                     });
-                });
-        }
+                }
+            }
+            // Match local logic for scroll down
+            function scrollToBottom() {
+                const out = document.getElementById('console-output');
+                out.scrollTop = out.scrollHeight;
+            }
 
-        let isDeleteMode = false;
+            // --- QUICK ACTIONS ---
+            const DEFAULT_ACTIONS = [
+                'read temp',
+                'read humidity',
+                'read version_request',
+                'util CP2105_RST',
+                'write cam_filter >120',
+                'write cam_filter <120'
+            ];
+            let quickActions = DEFAULT_ACTIONS;
 
-        function toggleDeleteMode() {
-            isDeleteMode = !isDeleteMode;
-            renderQuickActions();
-        }
+            function renderQuickActions() {
+                const container = document.getElementById('quick-actions-toolbar');
+                container.innerHTML = '';
 
-        function saveQuickActions(customList) {
-            let newActions = [];
+                // Define colors for types if needed
+                const typeColors = {
+                    'read': '#e06c75',
+                    'write': '#d19a66',
+                    'control': '#98c379',
+                    'test': '#61afef',
+                    'util': '#c678dd'
+                };
 
-            if (customList) {
-                newActions = customList;
-            } else {
-                const checkboxes = document.querySelectorAll('#qa-list input[type="checkbox"]');
-                checkboxes.forEach(chk => {
-                    if (chk.checked) newActions.push(chk.value);
+                quickActions.forEach(cmd => {
+                    const btn = document.createElement('button');
+                    btn.className = 'console-btn';
+                    // Short naming logic
+                    let label = cmd.split(' ')[1] || cmd;
+                    if (cmd === 'util CP2105_RST') label = T.reset_usb;
+                    if (cmd === 'read version_request') label = T.version_short;
+                    if (cmd === 'read humidity') label = T.humidity_short;
+                    if (cmd === 'read temp') label = T.ext_temp_short;
+                    if (cmd === 'write cam_filter >120') label = T.filter_gt_120;
+                    if (cmd === 'write cam_filter <120') label = T.filter_lt_120;
+
+                    btn.textContent = label;
+
+                    const type = cmd.split(' ')[0];
+                    btn.style.backgroundColor = typeColors[type] || '#5c6370';
+                    // better contrast for light colors
+                    if (['control', 'write'].includes(type) || label === T.humidity_short || label.startsWith(T.filter_prefix)) btn.style.color = 'black';
+
+                    if (isDeleteMode) {
+                        if (cmd.includes('cam_filter')) {
+                            btn.style.opacity = '0.5';
+                            btn.style.cursor = 'not-allowed';
+                            btn.title = T.action_cannot_be_deleted;
+                            btn.onclick = (e) => e.stopPropagation();
+                        } else {
+                            btn.style.border = '2px solid #ff4444';
+                            btn.classList.add('delete-shake');
+                            btn.title = T.click_to_delete;
+                            btn.onclick = (e) => {
+                                e.stopPropagation();
+                                const newActions = quickActions.filter(x => x !== cmd);
+                                saveQuickActions(newActions);
+                            };
+                        }
+                    } else {
+                        btn.onclick = () => execConsole(cmd);
+                    }
+
+                    container.appendChild(btn);
                 });
             }
 
-            quickActions = newActions;
+            function openQuickActionsSetup() {
+                const modal = document.getElementById('quickActionsModal');
+                const list = document.getElementById('qa-list');
+                list.innerHTML = T.loading_text + '...';
+                modal.style.display = 'block';
 
-            // Save to Server
-            fetch('/settings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ quick_actions: quickActions })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'saved') {
+                // Fetch commands if not loaded
+                fetch('/api/console/commands')
+                    .then(res => res.json())
+                    .then(cmds => {
+                        // Sort: Selected first, then Alphabetical
+                        cmds.sort((a, b) => {
+                            const aSelected = quickActions.includes(a.value);
+                            const bSelected = quickActions.includes(b.value);
+                            if (aSelected && !bSelected) return -1;
+                            if (!aSelected && bSelected) return 1;
+                            return a.value.localeCompare(b.value);
+                        });
+
+                        list.innerHTML = '';
+                        cmds.forEach(c => {
+                            const div = document.createElement('div');
+                            const chk = document.createElement('input');
+                            chk.type = 'checkbox';
+                            chk.value = c.value;
+                            chk.checked = quickActions.includes(c.value);
+                            chk.id = 'qa-' + c.value.replace(/\s+/g, '-');
+
+                            const lbl = document.createElement('label');
+                            lbl.htmlFor = chk.id;
+                            lbl.textContent = c.value;
+                            lbl.style.marginLeft = '5px';
+                            lbl.title = c.desc;
+
+                            div.appendChild(chk);
+                            div.appendChild(lbl);
+                            list.appendChild(div);
+                        });
+                    });
+            }
+
+            let isDeleteMode = false;
+
+            function toggleDeleteMode() {
+                isDeleteMode = !isDeleteMode;
+                renderQuickActions();
+            }
+
+            function saveQuickActions(customList) {
+                let newActions = [];
+
+                if (customList) {
+                    newActions = customList;
+                } else {
+                    const checkboxes = document.querySelectorAll('#qa-list input[type="checkbox"]');
+                    checkboxes.forEach(chk => {
+                        if (chk.checked) newActions.push(chk.value);
+                    });
+                }
+
+                quickActions = newActions;
+
+                // Save to Server
+                fetch('/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ quick_actions: quickActions })
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'saved') {
+                            renderQuickActions();
+                            document.getElementById('quickActionsModal').style.display = 'none';
+                        } else {
+                            alert(T.error_saving_settings);
+                        }
+                    });
+            }
+
+            function loadQuickActionsFromServer() {
+                fetch('/settings')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.quick_actions && Array.isArray(data.quick_actions)) {
+                            quickActions = data.quick_actions;
+                        }
                         renderQuickActions();
-                        document.getElementById('quickActionsModal').style.display = 'none';
-                    } else {
-                        alert(T.error_saving_settings);
-                    }
-                });
-        }
-
-        function loadQuickActionsFromServer() {
-            fetch('/settings')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.quick_actions && Array.isArray(data.quick_actions)) {
-                        quickActions = data.quick_actions;
-                    }
-                    renderQuickActions();
-                });
-        }
+                    });
+            }
 
     </script>
 

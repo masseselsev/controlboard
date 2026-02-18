@@ -46,13 +46,17 @@ def sync_repo():
                 git.Repo.clone_from(REPO_URL, REPO_CACHE_DIR, env=env)
                 print("[REPO] Clone complete.")
             else:
-                print(f"[REPO] Pulling changes in {REPO_CACHE_DIR}...")
+                print(f"[REPO] Updating {REPO_CACHE_DIR}...")
                 repo = git.Repo(REPO_CACHE_DIR)
                 with repo.git.custom_environment(GIT_TERMINAL_PROMPT='0'):
-                    repo.remotes.origin.pull()
-                print("[REPO] Pull complete.")
+                    # Force fetch and reset to avoid merge conflicts
+                    repo.remotes.origin.fetch()
+                    repo.git.reset('--hard', 'origin/main')
+                    # Also clean untracked files just in case
+                    repo.git.clean('-fdx')
+                print("[REPO] Update (Fetch+Reset) complete.")
         except Exception as e:
-            print(f"[REPO] Sync failed (Offline Mode?): {e}")
+            print(f"[REPO] Sync failed: {e}")
 
 # Start sync in background
 threading.Thread(target=sync_repo, daemon=True).start()
@@ -914,6 +918,7 @@ def list_repo_files():
              })
              
     return jsonify(files)
+@app.route('/api/console/connect', methods=['POST'])
 @login_required
 def console_connect():
     username = session['user']
