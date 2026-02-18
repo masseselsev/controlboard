@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= ВЕРСИЯ СКРИПТА =================
-SCRIPT_VERSION="31"
+SCRIPT_VERSION="32"
 # ==================================================
 
 #----------------------------------------------------------------------
@@ -268,8 +268,10 @@ if [ "$NEED_UPDATE" = false ]; then
     echo "---------------------------------------------------"
     
     # Запуск служб обратно
+    echo "  [INFO] Запуск служб..."
     sudo service edgeserver start || true
     sudo service vsmd start || true
+    echo "  [OK] Службы запущены."
     
     # Telegram Notification (Skipped)
      if [ -f "telegram_config.env" ]; then
