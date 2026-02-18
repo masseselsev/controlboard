@@ -24,7 +24,7 @@ def get_source_ip(target_ip, port=22):
         return None
 
 class FlashWorker(threading.Thread):
-    def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None, tg_token="", tg_chat_id=""):
+    def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None, tg_token="", tg_chat_id="", advertised_ip=None):
         super().__init__()
         self.ip = ip
         self.username = username
@@ -34,6 +34,7 @@ class FlashWorker(threading.Thread):
         self.completion_callback = completion_callback
         self.tg_token = tg_token
         self.tg_chat_id = tg_chat_id
+        self.advertised_ip = advertised_ip
         self.status = "FAILURE" # SUCCESS, SKIPPED, FAILURE
         self.last_log_line = ""
 
@@ -62,17 +63,21 @@ class FlashWorker(threading.Thread):
             if not self.tg_token or not self.tg_chat_id:
                 self.log("WARN: Telegram credentials are missing. Notifications will NOT be sent.")
             
-            if not self.tg_token or not self.tg_chat_id:
-                self.log("WARN: Telegram credentials are missing. Notifications will NOT be sent.")
-            
             # Determine BASE_URL for offline/local flashing
             source_ip = get_source_ip(self.ip, self.port)
             base_url_env = ""
-            if source_ip:
+            
+            # Priority 1: Explicitly Advertised IP (e.g. from Host Header) -> Fixes Docker
+            if self.advertised_ip:
+                base_url = f"http://{self.advertised_ip}:5000"
+                base_url_env = f'export BASE_URL="{base_url}"; '
+                self.log(f"Using Advertised Flasher URL: {base_url}")
+            # Priority 2: Detected Local IP (Backup, works for local non-docker)
+            elif source_ip:
                 # We assume the flask app is running on port 5000 on the same interface
                 base_url = f"http://{source_ip}:5000"
                 base_url_env = f'export BASE_URL="{base_url}"; '
-                self.log(f"Using Local Flasher URL: {base_url}")
+                self.log(f"Using Detected Local Flasher URL: {base_url}")
             
             env_vars = f'export TELEGRAM_BOT_TOKEN="{self.tg_token}"; export TELEGRAM_CHAT_ID="{self.tg_chat_id}"; export TERM=xterm-256color; {base_url_env}'
             # Fix CRLF issues by stripping \r with tr or sed
@@ -84,10 +89,11 @@ class FlashWorker(threading.Thread):
                  # Local Setup URL
                  setup_url = f"{base_url}/files/controlboard/setup.sh"
                  # We pass the setup_url as argument so the script knows where it came from (logic in setup.sh)
-                 cmd = env_vars + f'mkdir -p ~/controlboard; if wget -q -O ~/controlboard/setup.sh "{setup_url}"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "{setup_url}" --flash-cleanup; else echo "Error: Failed to download setup.sh from {setup_url}"; exit 1; fi'
+                 # ADDED TIMEOUT --timeout=10 to prevent hanging
+                 cmd = env_vars + f'mkdir -p ~/controlboard; if wget --timeout=10 -q -O ~/controlboard/setup.sh "{setup_url}"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "{setup_url}" --flash-cleanup; else echo "Error: Failed to download setup.sh from {setup_url}"; exit 1; fi'
             else:
                  # Fallback to GitHub
-                 cmd = env_vars + 'mkdir -p ~/controlboard; url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; if wget -q -O ~/controlboard/setup.sh "$url"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "$url" --flash-cleanup; else echo "Error: Failed to download setup.sh"; exit 1; fi'
+                 cmd = env_vars + 'mkdir -p ~/controlboard; url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; if wget --timeout=10 -q -O ~/controlboard/setup.sh "$url"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "$url" --flash-cleanup; else echo "Error: Failed to download setup.sh"; exit 1; fi'
             
             # Execute
             stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)

@@ -306,59 +306,88 @@
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h1>VSM2 Flash&Control Utility</h1>
                 <div style="display:flex; gap:10px; align-items:center;">
+                    <span style="color:#666; font-size:0.8em; margin-right: 10px;">v{{ version }}</span>
                     <span style="color:#888; font-size:0.9em;">User: <b>{{ user }}</b></span>
-                    <button class="secondary" onclick="openSettings()" style="width:auto;">⚙️ Settings</button>
+                    <button class="secondary" onclick="openSettings()" style="width:auto;">⚙️ {{ t.settings }}</button>
                     <a href="/logout" style="text-decoration:none;"><button class="secondary"
-                            style="width:auto; background-color:#333;">Logout</button></a>
+                            style="width:auto; background-color:#333;">{{ t.logout }}</button></a>
                 </div>
             </div>
 
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                 <div>
-                    <label>Username</label>
+                    <label for="username">{{ t.username_label }}</label>
                     <input type="text" id="username" value="user">
                 </div>
                 <div>
-                    <label>Password</label>
+                    <label for="password">{{ t.password_label }}</label>
                     <input type="password" id="password" value="admin">
                 </div>
-                <div style="grid-column: span 2;">
-                    <label>SSH Port</label>
-                    <input type="number" id="port" value="2222">
+            </div>
+
+            <div style="margin-top: 15px;">
+                <label for="ipInput">{{ t.target_devices }}</label>
+                <div style="font-size: 0.8em; color: #888; margin-bottom: 5px;">
+                    {{ t.ip_placeholder }}
                 </div>
+                <textarea id="ipInput" rows="4" placeholder="192.168.0.10, 192.168.0.20-30..."></textarea>
             </div>
 
-            <label>IP Addresses / Ranges</label>
-            <div style="font-size: 0.8em; color: #888; margin-bottom: 5px;">
-                Supported formats: <code>192.168.1.10</code>, <code>192.168.1.10-20</code>. Comma separated.
-            </div>
-            <textarea id="ipInput" rows="4" placeholder="192.168.0.10, 192.168.0.20-30, 10.8.0.5"></textarea>
+            <details>
+                <summary>{{ t.advanced_settings }}</summary>
+                <div style="margin-top: 10px;">
+                    <label for="port" style="display:block; margin-bottom:5px;">{{ t.ssh_port }}:</label>
+                    <input type="number" id="port" value="2222" style="width: 100%;">
 
-            <button onclick="startFlash()">🚀 Start Mass Flash & Reboot</button>
+                    <label for="advertisedIp" style="display:block; margin-top:10px; margin-bottom:5px;">{{
+                        t.advertised_ip_label }}:</label>
+                    <input type="text" id="advertisedIp" placeholder="{{ t.advertised_ip_placeholder }}">
+                    <div style="font-size: 0.8em; color: #888; margin-top: 2px;">
+                        {{ t.advertised_ip_desc }}
+                    </div>
+                </div>
+            </details>
+
+            <button onclick="startFlash()" class="btn-flash">🚀 {{ t.start_flash_btn }}</button>
+        </div>
+
+        <!-- Repository Status Card -->
+        <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h2>{{ t.repo_status_title }}</h2>
+                <button class="secondary" onclick="loadRepoStatus()" style="width:auto; font-size: 0.8em;">🔄
+                    {{ t.refresh_btn }}</button>
+            </div>
+            <div id="repo-info" style="font-size: 0.9em; color: #ccc; margin-bottom: 15px;">
+                {{ t.loading_text }}
+            </div>
+            <div
+                style="max-height: 200px; overflow-y: auto; background: #111; padding: 10px; border-radius: 4px; font-family: monospace;">
+                <ul id="file-list" style="list-style: none; padding-left: 0; margin: 0;"></ul>
+            </div>
         </div>
 
         <div class="card">
-            <div style="display:flex; justify-content:space-between; align-items:flex-end;">
-                <h2>Live Logs</h2>
-                <div>
+            <div class="log-header">
+                <h3>{{ t.live_logs_title }}</h3>
+                <div class="log-controls">
                     <button class="secondary" onclick="closeAllTabs()"
-                        style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px; margin-right:5px;">Close
-                        All Tabs</button>
+                        style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px; margin-right:5px;">{{
+                        t.close_all_tabs }}</button>
                     <button class="secondary" onclick="clearLogs()"
-                        style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px;">Clear
-                        Logs</button>
+                        style="width:auto; font-size: 0.8em; padding: 5px 10px; margin-bottom: 5px;">{{ t.clear_logs_btn
+                        }}</button>
                 </div>
             </div>
 
-            <!-- Tabs Header -->
-            <div id="tabs-header" class="tabs-header">
-                <button class="tab-btn active" onclick="switchTab('all')">All</button>
-                <button class="tab-btn" onclick="switchTab('console')" style="color: #61afef;">💻 Console</button>
+            <div class="tabs" id="log-tabs">
+                <button class="tab-btn active" onclick="switchTab('all')" id="tab-all">{{ t.all_tab }}</button>
+                <button class="tab-btn" onclick="switchTab('console')" id="tab-console">🖥️ {{ t.console_tab }}</button>
             </div>
 
             <!-- Tabs Content -->
             <div id="tabs-content">
-                <div id="log-all" class="log-container active">Initializing log stream...</div>
+                <div id="log-all" class="log-container active">{{ t.initializing_log_stream }}</div>
 
                 <!-- CONSOLE TAB -->
                 <div id="log-console" class="log-container"
@@ -367,23 +396,25 @@
                     <!-- Toolbar -->
                     <div
                         style="background:#252526; padding:10px; border-bottom:1px solid #333; display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
-                        <input type="text" id="console-ip" placeholder="Remote IP"
+                        <input type="text" id="console-ip" placeholder="{{ t.remote_ip_placeholder }}"
                             style="width:120px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;">
-                        <input type="number" id="console-ssh-port" placeholder="SSH Port" value="2222"
+                        <input type="number" id="console-ssh-port" placeholder="{{ t.ssh_port_placeholder }}"
+                            value="2222"
                             style="width:70px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;">
-                        <input type="text" id="console-user" placeholder="User" value="user"
+                        <input type="text" id="console-user" placeholder="{{ t.user_placeholder }}" value="user"
                             style="width:60px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;">
-                        <input type="password" id="console-pass" placeholder="Pass" value="admin"
+                        <input type="password" id="console-pass" placeholder="{{ t.pass_placeholder }}" value="admin"
                             style="width:60px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;">
-                        <input type="text" id="console-port" placeholder="Dev Port (Empty=Auto)"
+                        <input type="text" id="console-port" placeholder="{{ t.dev_port_placeholder }}"
                             style="width:140px; padding:5px; background:#3c3c3c; border:1px solid #555; color:white;"
-                            title="e.g /dev/ttyUSB0">
+                            title="{{ t.dev_port_title }}">
                         <button class="secondary" id="console-connect-btn" onclick="connectConsole()"
-                            style="padding:5px 10px; width:auto;">🔌 Connect</button>
-                        <button class="secondary" onclick="openDumpModal()" title="Batch Read Parameters"
-                            style="padding:5px 10px; width:auto; background:#444;">📥 Dump Params</button>
+                            style="padding:5px 10px; width:auto;">🔌 {{ t.connect_btn }}</button>
+                        <button class="secondary" onclick="openDumpModal()" title="{{ t.dump_params_title }}"
+                            style="padding:5px 10px; width:auto; background:#444;">📥 {{ t.dump_params_btn }}</button>
                         <span id="console-status"
-                            style="margin-left:10px; font-size:0.8em; color:#666; font-weight:bold;">DISCONNECTED</span>
+                            style="margin-left:10px; font-size:0.8em; color:#666; font-weight:bold;">{{
+                            t.disconnected_status }}</span>
                     </div>
 
                     <!-- Quick Actions Row -->
@@ -391,22 +422,24 @@
                         <div
                             style="font-size:0.75em; color:#aaa; margin-bottom:1px; margin-top:2px; display:flex; gap:10px; font-family:sans-serif; line-height:1;">
                             <span style="display:flex; align-items:center; gap:4px;"><span
-                                    style="color:#e06c75">■</span> Read</span>
+                                    style="color:#e06c75">■</span> {{ t.read_action }}</span>
                             <span style="display:flex; align-items:center; gap:4px;"><span
-                                    style="color:#d19a66">■</span> Write</span>
+                                    style="color:#d19a66">■</span> {{ t.write_action }}</span>
                             <span style="display:flex; align-items:center; gap:4px;"><span
-                                    style="color:#98c379">■</span> Control</span>
+                                    style="color:#98c379">■</span> {{ t.control_action }}</span>
                             <span style="display:flex; align-items:center; gap:4px;"><span
-                                    style="color:#c678dd">■</span> Util</span>
+                                    style="color:#c678dd">■</span> {{ t.util_action }}</span>
                         </div>
                         <div style="display:flex; gap:5px; align-items:flex-start;">
                             <div id="quick-actions-toolbar"
                                 style="display: flex; flex-wrap: wrap; gap: 5px; flex-grow:1;">
                                 <!-- Dynamic Content -->
                             </div>
-                            <button class="console-btn" onclick="toggleDeleteMode()" title="Delete Buttons"
+                            <button class="console-btn" onclick="toggleDeleteMode()"
+                                title="{{ t.delete_buttons_title }}"
                                 style="background:#3e3e3e; color:#ccc; min-width: 30px;">🗑️</button>
-                            <button class="console-btn" onclick="openQuickActionsSetup()" title="Configure Buttons"
+                            <button class="console-btn" onclick="openQuickActionsSetup()"
+                                title="{{ t.configure_buttons_title }}"
                                 style="background:#3e3e3e; color:#ccc; min-width: 30px;">+</button>
                         </div>
                     </div>
@@ -414,14 +447,15 @@
                     <!-- Terminal Output -->
                     <div id="console-output"
                         style="flex-grow:1; overflow-y:auto; padding:10px; font-family:'Consolas', monospace; white-space:pre-wrap; font-size:14px; color:#d4d4d4;">
-                        <div style="color:#666;">--- Controller Console initialized ---</div>
-                        <div style="color:#666;">Type 'help' or commands like 'read temp'.</div>
+                        <div style="color:#666;">--- {{ t.console_initialized }} ---</div>
+                        <div style="color:#666;">{{ t.console_help_text }}</div>
                     </div>
 
                     <!-- Input Area -->
                     <div style="background:#252526; padding:10px; border-top:1px solid #333; display:flex;">
                         <span style="padding:10px 5px 10px 0; color:#50fa7b; font-weight:bold;">$</span>
-                        <input type="text" id="console-input" list="cmd-list" placeholder="Enter command..."
+                        <input type="text" id="console-input" list="cmd-list"
+                            placeholder="{{ t.enter_command_placeholder }}"
                             style="background:transparent; border:none; color:white; font-family:'Consolas', monospace; font-size:14px; margin:0;"
                             autocomplete="off">
                         <datalist id="cmd-list"></datalist>
@@ -436,12 +470,12 @@
         <div class="modal-content">
             <span class="close"
                 onclick="document.getElementById('quickActionsModal').style.display='none'">&times;</span>
-            <h2>Customize Quick Actions</h2>
+            <h2>{{ t.customize_quick_actions }}</h2>
             <div id="qa-list"
                 style="max-height: 400px; overflow-y: auto; overflow-x: hidden; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
             </div>
             <div style="margin-top: 15px; text-align: right;">
-                <button onclick="saveQuickActions()" class="main-btn">Save</button>
+                <button onclick="saveQuickActions()" class="main-btn">{{ t.save_btn }}</button>
             </div>
         </div>
     </div>
@@ -450,19 +484,19 @@
     <div id="dumpModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <span class="close" onclick="document.getElementById('dumpModal').style.display='none'">&times;</span>
-            <h2>Select Parameters to Dump</h2>
+            <h2>{{ t.select_params_to_dump }}</h2>
             <div style="margin-bottom: 10px;">
-                <button class="secondary" onclick="toggleDumpChecks(true)" style="width:auto; padding:5px 10px;">Select
-                    All</button>
-                <button class="secondary" onclick="toggleDumpChecks(false)"
-                    style="width:auto; padding:5px 10px;">Deselect All</button>
+                <button class="secondary" onclick="toggleDumpChecks(true)" style="width:auto; padding:5px 10px;">{{
+                    t.select_all_btn }}</button>
+                <button class="secondary" onclick="toggleDumpChecks(false)" style="width:auto; padding:5px 10px;">{{
+                    t.deselect_all_btn }}</button>
             </div>
             <div id="dump-list"
                 style="max-height: 400px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px;">
                 <!-- Checkboxes generated here -->
             </div>
             <div style="margin-top: 15px; text-align: right;">
-                <button onclick="executeDump()" id="btn-exec-dump">Execute Dump</button>
+                <button onclick="executeDump()" id="btn-exec-dump">{{ t.execute_dump_btn }}</button>
             </div>
         </div>
     </div>
@@ -471,13 +505,14 @@
     <div id="dumpResultModal" class="modal">
         <div class="modal-content" style="max-width: 700px;">
             <span class="close" onclick="document.getElementById('dumpResultModal').style.display='none'">&times;</span>
-            <h2>Dump Results</h2>
+            <h2>{{ t.dump_results_title }}</h2>
             <textarea id="dump-output" rows="15"
                 style="font-family: monospace; font-size: 13px; background: #111; color: #50fa7b;"></textarea>
             <div style="margin-top: 15px; display:flex; gap: 10px; justify-content: flex-end;">
-                <button class="secondary" onclick="copyDump()">📋 Copy</button>
-                <button class="secondary" onclick="downloadDump()">💾 Download .txt</button>
-                <button onclick="document.getElementById('dumpResultModal').style.display='none'">Close</button>
+                <button class="secondary" onclick="copyDump()">📋 {{ t.copy_btn }}</button>
+                <button class="secondary" onclick="downloadDump()">💾 {{ t.download_txt_btn }}</button>
+                <button onclick="document.getElementById('dumpResultModal').style.display='none'">{{ t.close_btn
+                    }}</button>
             </div>
         </div>
     </div>
@@ -485,18 +520,28 @@
     <!-- Settings Modal -->
     <div id="settingsModal" class="modal">
         <div class="modal-content">
-            <h2>Telegram Notification Settings</h2>
-            <p style="font-size:0.9em; color:#aaa;">Secrets are saved on the server and never sent to devices.</p>
+            <h2>{{ t.settings_title }}</h2>
+            <p style="font-size:0.9em; color:#aaa;">{{ t.secrets_saved_desc }}</p>
 
-            <label>Bot Token</label>
+            <h3>{{ t.telegram_settings_title }}</h3>
+            <label for="tel_token">{{ t.bot_token_label }}</label>
             <input type="text" id="tel_token" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
 
-            <label>Chat ID</label>
+            <label for="tel_chat_id">{{ t.chat_id_label }}</label>
             <input type="text" id="tel_chat_id" placeholder="-1001234567890">
 
-            <div style="display:flex; gap:10px;">
-                <button onclick="saveSettings()">Save</button>
-                <button class="secondary" onclick="closeSettings()">Cancel</button>
+            <h3 style="margin-top: 20px;">{{ t.language_settings_title }}</h3>
+            <label for="user_lang">{{ t.language_label }}</label>
+            <select id="user_lang">
+                {% for lang_code, lang_name in available_languages.items() %}
+                <option value="{{ lang_code }}" {% if lang_code==current_lang %}selected{% endif %}>{{ lang_name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <div style="margin-top: 20px; display:flex; gap:10px;">
+                <button onclick="saveSettings()">{{ t.save_btn }}</button>
+                <button class="secondary" onclick="closeSettings()">{{ t.cancel_btn }}</button>
             </div>
         </div>
     </div>
@@ -582,7 +627,7 @@
             const closeSpan = document.createElement('span');
             closeSpan.className = 'close-tab';
             closeSpan.innerHTML = '&times;';
-            closeSpan.title = "Close Tab (history preserved in All)";
+            closeSpan.title = T.close_tab_title;
             closeSpan.onclick = (e) => closeTab(ip, e);
             btn.appendChild(closeSpan);
 
@@ -638,9 +683,9 @@
             // Update Buttons
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             if (safeIp === 'all') {
-                tabsHeader.children[0].classList.add('active'); // All button
+                document.getElementById('tab-all').classList.add('active'); // All button
             } else if (safeIp === 'console') {
-                // handled in override below
+                document.getElementById('tab-console').classList.add('active');
             } else {
                 const btn = document.getElementById(`btn-${cleanIp}`);
                 if (btn) btn.classList.add('active');
@@ -741,17 +786,24 @@
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
             const port = document.getElementById('port').value;
+            const advertisedIp = document.getElementById('advertisedIp').value.trim();
             const btn = document.querySelector('button[onclick="startFlash()"]');
 
             if (!ips) {
-                alert("Please enter IP addresses");
+                alert(T.alert_enter_ips);
+                return;
+            }
+
+            // CRITICAL CHECK for Localhost usage
+            const hostname = window.location.hostname;
+            if ((hostname === 'localhost' || hostname === '127.0.0.1') && !advertisedIp) {
+                alert(T.alert_localhost_warning);
+                document.getElementById('advertisedIp').focus();
+                document.getElementById('advertisedIp').style.borderColor = 'red';
                 return;
             }
 
             if (btn) btn.disabled = true;
-
-            // Clear previous logs
-            // clearLogs(); // User might want to keep history? Let's keep it.
 
             fetch('/flash', {
                 method: 'POST',
@@ -762,7 +814,8 @@
                     ips: ips,
                     username: user,
                     password: pass,
-                    port: port
+                    port: port,
+                    advertised_ip: advertisedIp
                 }),
             })
                 .then(response => response.json())
@@ -771,18 +824,128 @@
                         // Logs will stream automatically via SSE
                         console.log("Flash started");
                     } else {
-                        alert('Error: ' + data.error);
+                        alert(T.error_prefix + data.error);
                     }
                 })
                 .catch((error) => {
                     console.error('Error:', error);
-                    alert('Connection error');
+                    alert(T.connection_error);
                 })
                 .finally(() => {
-                    // Re-enable after a short delay to prevent accidental double-clicks
                     setTimeout(() => { if (btn) btn.disabled = false; }, 2000);
                 });
         }
+
+        // ... existing clearLogs ...
+
+        function loadRepoStatus() {
+            const infoDiv = document.getElementById('repo-info');
+            const fileList = document.getElementById('file-list');
+
+            infoDiv.innerHTML = T.refreshing_text;
+
+            // 1. Get Status
+            fetch('/api/repo/status')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.exists) {
+                        infoDiv.innerHTML = `
+                            <div><b>${T.repo_branch}</b> ${data.branch}</div>
+                            <div><b>${T.repo_commit}</b> ${data.commit}</div>
+                            <div><b>${T.repo_date}</b> ${data.date}</div>
+                            <div><b>${T.repo_synced}</b> ${data.last_synced || T.unknown_text}</div>
+                            <div><b>${T.repo_msg}</b> ${data.message}</div>
+                        `;
+                    } else {
+                        infoDiv.innerHTML = `<span style="color:orange">${T.repo_not_init}</span>`;
+                    }
+                })
+                .catch(err => {
+                    infoDiv.innerHTML = `<span style="color:red">${T.error_prefix}: ${err}</span>`;
+                });
+
+            // 2. Get Files (Filtered View)
+            // First fetch root
+            fetch('/api/repo/list')
+                .then(res => res.json())
+                .then(async (files) => {
+                    fileList.innerHTML = '';
+                    if (files.length === 0) {
+                        fileList.innerHTML = `<li>(${T.no_files_found})</li>`;
+                        return;
+                    }
+
+                    // Filter dotfiles
+                    const visibleFiles = files.filter(f => !f.name.startsWith('.'));
+
+                    // Check for 'controlboard' directory
+                    const controlBoardDir = visibleFiles.find(f => f.name === 'controlboard' && f.type === 'dir');
+
+                    if (controlBoardDir) {
+                        // If controlboard exists, fetch ITS content too
+                        try {
+                            const subRes = await fetch('/api/repo/list?path=controlboard');
+                            const subFiles = await subRes.json();
+
+                            // Add Header for root
+                            // fileList.innerHTML += `<li style="color:#aaa; border-bottom:1px solid #333; margin-bottom:5px;">Root:</li>`;
+
+                            // Show only Setup script if present, or all non-dotfiles
+                            const setupScript = subFiles.find(f => f.name === 'setup.sh');
+
+                            if (setupScript) {
+                                fileList.innerHTML += `
+                                <li style="background:#1e1e1e; padding:5px; margin-bottom:5px; border-left:3px solid #50fa7b;">
+                                    <div style="font-weight:bold; color:#fff;">✅ ${T.ready_to_flash}</div>
+                                    <div style="font-size:0.9em; color:#ccc;">${T.found_text}: <span style="color:#50fa7b">controlboard/setup.sh</span></div>
+                                </li>`;
+                            }
+
+                            // List valid source files in controlboard
+                            subFiles.filter(f => !f.name.startsWith('.') && f.name !== 'setup.sh').forEach(f => {
+                                renderFileItem(f, 'controlboard/', fileList);
+                            });
+
+                        } catch (e) {
+                            console.error("Failed to load subdir", e);
+                        }
+                    } else {
+                        // Just list root files if controlboard not found
+                        visibleFiles.forEach(f => renderFileItem(f, '', fileList));
+                    }
+                });
+        }
+
+        function renderFileItem(f, pathPrefix, container) {
+            const li = document.createElement('li');
+            const icon = f.type === 'dir' ? 'dv ' : '📄 ';
+            const displayName = pathPrefix + f.name;
+
+            if (f.type === 'file') {
+                li.innerHTML = `${icon} <a href="${f.download_url}" target="_blank" style="color:#d4d4d4; text-decoration:none;">${displayName}</a>`;
+            } else {
+                li.innerHTML = `${icon} ${displayName}`;
+                li.style.color = '#888';
+            }
+            container.appendChild(li);
+        }
+
+        // Init
+        const currentHost = window.location.hostname;
+        // If localhost, force user to see placeholder
+        if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+            const advInput = document.getElementById('advertisedIp');
+            if (advInput) advInput.value = currentHost;
+        } else {
+            const advInput = document.getElementById('advertisedIp');
+            if (advInput) advInput.placeholder = T.advertised_ip_placeholder_required;
+            // Make label red to draw attention
+            const label = document.querySelector('label[for="advertisedIp"]') || document.evaluate("//label[contains(., 'Advertised')]", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            if (label) label.style.color = "#ff4444";
+        }
+
+        loadRepoStatus();
+        loadQuickActionsFromServer();
 
         function clearLogs() {
             // Clear content of all containers
@@ -801,13 +964,24 @@
         const modal = document.getElementById("settingsModal");
 
         function openSettings() {
+            // console.log("Opening settings...");
             fetch('/settings')
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('tel_token').value = data.telegram_token || '';
-                    document.getElementById('tel_chat_id').value = data.telegram_chat_id || '';
-                    modal.style.display = "block";
-                });
+                    try {
+                        document.getElementById('tel_token').value = data.telegram_token || '';
+                        document.getElementById('tel_chat_id').value = data.telegram_chat_id || '';
+
+                        const langEl = document.getElementById('user_lang');
+                        if (langEl) langEl.value = data.language || 'en';
+
+                        document.getElementById('settingsModal').style.display = "block";
+                    } catch (e) {
+                        alert("Error opening settings: " + e);
+                        console.error(e);
+                    }
+                })
+                .catch(err => alert("Failed to load settings: " + err));
         }
 
         function closeSettings() {
@@ -817,20 +991,23 @@
         function saveSettings() {
             const token = document.getElementById('tel_token').value;
             const chatId = document.getElementById('tel_chat_id').value;
-
-            const formData = new FormData();
-            formData.append('telegram_token', token);
-            formData.append('telegram_chat_id', chatId);
+            const lang = document.getElementById('user_lang').value;
 
             fetch('/settings', {
                 method: 'POST',
-                body: formData
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `telegram_token=${encodeURIComponent(token)}&telegram_chat_id=${encodeURIComponent(chatId)}&language=${encodeURIComponent(lang)}`
             })
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'saved') {
-                        closeSettings();
-                        alert("Settings saved!");
+                        document.getElementById('settingsModal').style.display = 'none';
+                        // Reload to apply language
+                        if (lang !== '{{ current_lang }}') {
+                            window.location.reload();
+                        }
+                    } else {
+                        alert(T.error_saving_settings);
                     }
                 });
         }
@@ -848,7 +1025,7 @@
                     const readCmds = data.filter(c => c.value.startsWith('read '));
 
                     if (readCmds.length === 0) {
-                        list.innerHTML = '<div style="grid-column:span 3;">No read commands found. Connect and ensure commands are loaded.</div>';
+                        list.innerHTML = `<div style="grid-column:span 3;">${T.no_read_commands_found}</div>`;
                     }
 
                     readCmds.forEach(cmd => {
@@ -876,13 +1053,13 @@
             const commands = Array.from(boxes).map(b => b.value);
 
             if (commands.length === 0) {
-                alert("Select at least one parameter.");
+                alert(T.alert_select_param);
                 return;
             }
 
             const btn = document.getElementById('btn-exec-dump');
             const originalText = btn.innerText;
-            btn.innerText = "Reading... Please wait";
+            btn.innerText = T.reading_please_wait;
             btn.disabled = true;
 
             fetch('/api/console/batch_read', {
@@ -893,14 +1070,14 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.error) {
-                        alert("Error: " + data.error);
+                        alert(T.error_prefix + data.error);
                     } else {
                         document.getElementById('dumpModal').style.display = 'none';
                         document.getElementById('dump-output').value = data.text;
                         document.getElementById('dumpResultModal').style.display = 'block';
                     }
                 })
-                .catch(e => alert("Connection error: " + e))
+                .catch(e => alert(T.connection_error_prefix + e))
                 .finally(() => {
                     btn.innerText = originalText;
                     btn.disabled = false;
@@ -943,7 +1120,7 @@
                     const readCmds = data.filter(c => c.value.startsWith('read '));
 
                     if (readCmds.length === 0) {
-                        list.innerHTML = '<div style="grid-column:span 3;">No read commands found. Connect and ensure commands are loaded.</div>';
+                        list.innerHTML = `<div style="grid-column:span 3;">${T.no_read_commands_found}</div>`;
                     }
 
                     readCmds.forEach(cmd => {
@@ -971,7 +1148,7 @@
             const commands = Array.from(boxes).map(b => b.value);
 
             if (commands.length === 0) {
-                alert("Select at least one parameter.");
+                alert(T.alert_select_param);
                 return;
             }
 
@@ -984,21 +1161,21 @@
                 const ipInput = document.getElementById('console-ip');
                 if (ipInput && ipInput.value.trim()) {
                     // console.log("Auto-connecting for dump...");
-                    btn.innerText = "Connecting...";
+                    btn.innerText = T.connecting_text;
                     btn.disabled = true;
                     connectPromise = connectConsole();
                 } else {
-                    alert("Not connected and no IP provided.");
+                    alert(T.not_connected_no_ip);
                     return;
                 }
             }
 
             connectPromise.then(() => {
                 if (!isConnected) {
-                    throw new Error("Connection failed");
+                    throw new Error(T.connection_failed);
                 }
 
-                btn.innerText = "Reading... Please wait";
+                btn.innerText = T.reading_please_wait;
                 btn.disabled = true;
 
                 return fetch('/api/console/batch_read', {
@@ -1010,7 +1187,7 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.error) {
-                        alert("Error: " + data.error);
+                        alert(T.error_prefix + data.error);
                     } else {
                         document.getElementById('dumpModal').style.display = 'none';
                         document.getElementById('dump-output').value = data.text;
@@ -1018,8 +1195,8 @@
                     }
                 })
                 .catch(e => {
-                    if (e.message !== "Connection failed") {
-                        alert("Operation error: " + e);
+                    if (e.message !== T.connection_failed) {
+                        alert(T.operation_error_prefix + e);
                     }
                 })
                 .finally(() => {
@@ -1070,13 +1247,13 @@
 
         function refreshPorts() {
             const sel = document.getElementById('console-port');
-            sel.innerHTML = '<option>Scanning...</option>';
+            sel.innerHTML = `<option>${T.scanning_text}...</option>`;
             fetch('/api/console/ports')
                 .then(res => res.json())
                 .then(ports => {
                     sel.innerHTML = '';
                     if (ports.length === 0) {
-                        sel.innerHTML = '<option value="">No ports found</option>';
+                        sel.innerHTML = `<option value="">${T.no_ports_found}</option>`;
                     } else {
                         ports.forEach(p => {
                             const opt = document.createElement('option');
@@ -1087,7 +1264,7 @@
                     }
                 })
                 .catch(err => {
-                    sel.innerHTML = '<option value="">Error scanning</option>';
+                    sel.innerHTML = `<option value="">${T.error_scanning}</option>`;
                 });
         }
 
@@ -1132,17 +1309,17 @@
             const btn = document.getElementById('console-connect-btn');
 
             if (connected) {
-                statusEl.textContent = "CONNECTED (Session Active)";
+                statusEl.textContent = T.connected_status;
                 statusEl.style.color = "#98c379";
-                btn.textContent = "❌ Disconnect";
+                btn.textContent = "❌ " + T.disconnect_btn;
                 btn.onclick = disconnectConsole;
                 btn.style.background = "#e06c75";
                 btn.style.color = "white";
                 appendConsole(msg);
             } else {
-                statusEl.textContent = "DISCONNECTED";
+                statusEl.textContent = T.disconnected_status;
                 statusEl.style.color = "#666";
-                btn.textContent = "🔌 Connect";
+                btn.textContent = "🔌 " + T.connect_btn;
                 btn.onclick = connectConsole;
                 btn.style.background = ""; // default
                 btn.style.color = "";
@@ -1157,11 +1334,11 @@
             const pass = document.getElementById('console-pass').value;
 
             if (!ip) {
-                appendConsole("[Error] IP Required", "error");
-                return Promise.reject("IP Required");
+                appendConsole(`[${T.error_text}] ${T.ip_required}`, "error");
+                return Promise.reject(T.ip_required);
             }
 
-            appendConsole(`[System] Connecting to ${ip}:${sshPort}...`, "dim");
+            appendConsole(`[${T.system_text}] ${T.connecting_to} ${ip}:${sshPort}...`, "dim");
 
             return fetch('/api/console/connect', {
                 method: 'POST',
@@ -1171,9 +1348,9 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.error) {
-                        appendConsole(`[Error] ${data.error}`, "error");
+                        appendConsole(`[${T.error_text}] ${data.error}`, "error");
                         // auto disconnect if session lost?
-                        if (data.error.includes("Session Lost")) {
+                        if (data.error.includes(T.session_lost)) {
                             updateConnectionState(false);
                         }
                         throw new Error(data.error);
@@ -1184,8 +1361,8 @@
                 })
                 .catch(err => {
                     // Only append if it wasn't already appended
-                    if (!err.message || !err.message.startsWith('[Error]')) {
-                        appendConsole(`[Network Error] ${err}`, "error");
+                    if (!err.message || !err.message.startsWith(`[${T.error_text}]`)) {
+                        appendConsole(`[${T.network_error}] ${err}`, "error");
                     }
                     throw err;
                 });
@@ -1195,7 +1372,7 @@
             fetch('/api/console/disconnect', { method: 'POST' })
                 .then(res => res.json())
                 .then(data => {
-                    updateConnectionState(false, "[System] Disconnected.");
+                    updateConnectionState(false, `[${T.system_text}] ${T.disconnected_message}.`);
                 });
         }
 
@@ -1208,7 +1385,7 @@
             // If not connected, warn user (unless it's a local util?) 
             // Actually request prompts for connection first.
             if (!isConnected) {
-                appendConsole("[Info] Please connect first.", "dim");
+                appendConsole(`[${T.info_text}] ${T.please_connect_first}.`, "dim");
                 return;
             }
 
@@ -1231,9 +1408,9 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.error) {
-                        appendConsole(`[Error] ${data.error}`, 'error');
+                        appendConsole(`[${T.error_text}] ${data.error}`, 'error');
                         // auto disconnect if session lost?
-                        if (data.error.includes("Session Lost")) {
+                        if (data.error.includes(T.session_lost)) {
                             updateConnectionState(false);
                         }
                     } else {
@@ -1241,7 +1418,7 @@
                     }
                 })
                 .catch(err => {
-                    appendConsole(`[Network Error] ${err}`, 'error');
+                    appendConsole(`[${T.network_error}] ${err}`, 'error');
                 });
         }
 
@@ -1290,7 +1467,7 @@
         refreshCommands();
 
         function testConnection() {
-            appendConsole("--- Testing Connection ---", "dim");
+            appendConsole(`--- ${T.testing_connection} ---`, "dim");
             execConsole("read firmware_version");
         }
 
@@ -1384,30 +1561,30 @@
                 btn.className = 'console-btn';
                 // Short naming logic
                 let label = cmd.split(' ')[1] || cmd;
-                if (cmd === 'util CP2105_RST') label = 'Reset USB';
-                if (cmd === 'read version_request') label = 'Ver';
-                if (cmd === 'read humidity') label = 'Hum';
-                if (cmd === 'read temp') label = 'Ext Temp';
-                if (cmd === 'write cam_filter >120') label = 'Filter >120';
-                if (cmd === 'write cam_filter <120') label = 'Filter <120';
+                if (cmd === 'util CP2105_RST') label = T.reset_usb;
+                if (cmd === 'read version_request') label = T.version_short;
+                if (cmd === 'read humidity') label = T.humidity_short;
+                if (cmd === 'read temp') label = T.ext_temp_short;
+                if (cmd === 'write cam_filter >120') label = T.filter_gt_120;
+                if (cmd === 'write cam_filter <120') label = T.filter_lt_120;
 
                 btn.textContent = label;
 
                 const type = cmd.split(' ')[0];
                 btn.style.backgroundColor = typeColors[type] || '#5c6370';
                 // better contrast for light colors
-                if (['control', 'write'].includes(type) || label === 'Hum' || label.startsWith('Filter')) btn.style.color = 'black';
+                if (['control', 'write'].includes(type) || label === T.humidity_short || label.startsWith(T.filter_prefix)) btn.style.color = 'black';
 
                 if (isDeleteMode) {
                     if (cmd.includes('cam_filter')) {
                         btn.style.opacity = '0.5';
                         btn.style.cursor = 'not-allowed';
-                        btn.title = "This action cannot be deleted";
+                        btn.title = T.action_cannot_be_deleted;
                         btn.onclick = (e) => e.stopPropagation();
                     } else {
                         btn.style.border = '2px solid #ff4444';
                         btn.classList.add('delete-shake');
-                        btn.title = "Click to DELETE";
+                        btn.title = T.click_to_delete;
                         btn.onclick = (e) => {
                             e.stopPropagation();
                             const newActions = quickActions.filter(x => x !== cmd);
@@ -1425,7 +1602,7 @@
         function openQuickActionsSetup() {
             const modal = document.getElementById('quickActionsModal');
             const list = document.getElementById('qa-list');
-            list.innerHTML = 'Loading...';
+            list.innerHTML = T.loading_text + '...';
             modal.style.display = 'block';
 
             // Fetch commands if not loaded
@@ -1498,7 +1675,7 @@
                         renderQuickActions();
                         document.getElementById('quickActionsModal').style.display = 'none';
                     } else {
-                        alert('Error saving settings');
+                        alert(T.error_saving_settings);
                     }
                 });
         }
@@ -1513,9 +1690,6 @@
                     renderQuickActions();
                 });
         }
-
-        // Init
-        loadQuickActionsFromServer();
 
     </script>
 

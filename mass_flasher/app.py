@@ -15,7 +15,19 @@ import threading
 import socket  # Added for IP detection
 
 # --- REPO CACHE SETTINGS ---
-REPO_CACHE_DIR = "/app/repo_cache"
+# Determine REPO_CACHE_DIR based on environment
+if os.path.exists("/app/repo_cache"):
+    REPO_CACHE_DIR = "/app/repo_cache"
+else:
+    REPO_CACHE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "repo_cache"))
+
+if not os.path.exists(REPO_CACHE_DIR):
+    try:
+        os.makedirs(REPO_CACHE_DIR)
+    except OSError:
+        # Fallback to tmp if current dir is not writable?
+        # For now, let it fail or assume current dir is writable
+        pass
 REPO_URL = "https://github.com/masseselsev/controlboard.git"
 REPO_Lock = threading.Lock()
 
@@ -23,22 +35,300 @@ def sync_repo():
     """Background task to sync the repo on startup."""
     with REPO_Lock:
         try:
+            # Disable interactive prompts to prevent hanging
+            env = os.environ.copy()
+            env['GIT_TERMINAL_PROMPT'] = '0'
+            
             if not os.path.exists(os.path.join(REPO_CACHE_DIR, '.git')):
                 print(f"[REPO] Cloning {REPO_URL} to {REPO_CACHE_DIR}...")
                 if not os.path.exists(REPO_CACHE_DIR):
                     os.makedirs(REPO_CACHE_DIR)
-                git.Repo.clone_from(REPO_URL, REPO_CACHE_DIR)
+                git.Repo.clone_from(REPO_URL, REPO_CACHE_DIR, env=env)
                 print("[REPO] Clone complete.")
             else:
                 print(f"[REPO] Pulling changes in {REPO_CACHE_DIR}...")
                 repo = git.Repo(REPO_CACHE_DIR)
-                repo.remotes.origin.pull()
+                with repo.git.custom_environment(GIT_TERMINAL_PROMPT='0'):
+                    repo.remotes.origin.pull()
                 print("[REPO] Pull complete.")
         except Exception as e:
             print(f"[REPO] Sync failed (Offline Mode?): {e}")
 
 # Start sync in background
 threading.Thread(target=sync_repo, daemon=True).start()
+
+TRANSLATIONS = {
+    "en": {
+        "login_title": "Mass Flasher Login",
+        "header_title": "VSM2 Flash&Control",
+        "username": "Username",
+        "password": "Password",
+        "login_btn": "Login",
+        "register_btn": "Register",
+        "new_pass_tg": "New pass via TG Bot",
+        "user_created": "User created! You can now login.",
+        "enter_user_pass": "Please enter Username and Password to register.",
+        "enter_user_first": "Please enter your Username first.",
+        "sending_request": "Sending request...",
+        "request_failed": "Request failed: ",
+        "invalid_credentials": "Invalid credentials",
+        "dashboard_title": "VSM2 Flash & Control",
+        "logout": "Logout",
+        "settings": "Settings",
+        "target_devices": "Target Devices",
+        "ip_placeholder": "Supported formats: 192.168.1.10, 192.168.1.10-20. Comma separated.",
+        "ssh_creds": "SSH Credentials",
+        "advanced_settings": "Advanced Settings",
+        "advertised_ip_label": "Advertised Flasher IP",
+        "advertised_ip_placeholder": "Auto-detect",
+        "advertised_ip_desc": "If running in Docker/WSL, set this to your LAN IP so devices can reach back.",
+        "start_flash_btn": "Start Mass Flash & Reboot",
+        "repo_status_title": "Repository Status",
+        "refresh_btn": "Refresh",
+        "live_logs_title": "Live Logs",
+        "clear_logs_btn": "Clear Logs",
+        "close_all_tabs": "Close All Tabs",
+        "console_tab": "Console",
+        "quick_actions_title": "Quick Actions",
+        "config_modal_title": "Configuration",
+        "telegram_settings": "Telegram Notification Settings",
+        "save_btn": "Save",
+        "language_label": "Language / Язык",
+        "flash_started": "Flash started",
+        "connection_error": "Connection error",
+        "please_enter_ips": "Please enter IP addresses",
+        "repo_refreshing": "Refreshing...",
+        "repo_not_init": "Repo not initialized yet (will sync on startup/first use)",
+        "repo_branch": "Branch:",
+        "repo_commit": "Commit:",
+        "repo_date": "Date:",
+        "repo_synced": "Synced:",
+        "repo_msg": "Msg:",
+        "repo_no_files": "(No files found)",
+        "repo_ready_flash": "Ready to Flash",
+        "repo_found": "Found:",
+        "localhost_warning": "⚠️ ATTENTION!\\n\\nYou are accessing the dashboard via 'localhost'.\\nTarget devices cannot reach 'localhost'.\\n\\nPlease enter your computer's actual LAN IP (e.g., 192.168.1.x) in the 'Advertised Flasher IP' box.",
+        "username_label": "Username",
+        "password_label": "Password",
+        "ssh_port": "SSH Port",
+        "advertised_ip_placeholder_required": "REQUIRED: Enter LAN IP (e.g. 192.168.1.50)",
+        "loading_text": "Loading...",
+        "all_tab": "All",
+        "initializing_log_stream": "Initializing log stream...",
+        "remote_ip_placeholder": "Remote IP",
+        "ssh_port_placeholder": "SSH Port",
+        "user_placeholder": "User",
+        "pass_placeholder": "Pass",
+        "dev_port_placeholder": "Dev Port (Empty=Auto)",
+        "dev_port_title": "e.g /dev/ttyUSB0",
+        "connect_btn": "Connect",
+        "dump_params_title": "Batch Read Parameters",
+        "dump_params_btn": "Dump Params",
+        "disconnected_status": "DISCONNECTED",
+        "read_action": "Read",
+        "write_action": "Write",
+        "control_action": "Control",
+        "util_action": "Util",
+        "delete_buttons_title": "Delete Buttons",
+        "configure_buttons_title": "Configure Buttons",
+        "console_initialized": "Controller Console initialized",
+        "console_help_text": "Type 'help' or commands like 'read temp'.",
+        "enter_command_placeholder": "Enter command...",
+        "customize_quick_actions": "Customize Quick Actions",
+        "select_params_to_dump": "Select Parameters to Dump",
+        "select_all_btn": "Select All",
+        "deselect_all_btn": "Deselect All",
+        "execute_dump_btn": "Execute Dump",
+        "dump_results_title": "Dump Results",
+        "copy_btn": "Copy",
+        "download_txt_btn": "Download .txt",
+        "close_btn": "Close",
+        "settings_title": "Configuration",
+        "secrets_saved_desc": "Secrets are saved on the server and never sent to devices.",
+        "telegram_settings_title": "Telegram Notification Settings",
+        "bot_token_label": "Bot Token",
+        "chat_id_label": "Chat ID",
+        "language_settings_title": "Language Settings",
+        "cancel_btn": "Cancel",
+        "close_tab_title": "Close Tab (history preserved in All)",
+        "alert_enter_ips": "Please enter IP addresses",
+        "alert_localhost_warning": "⚠️ ATTENTION!\\n\\nYou are accessing the dashboard via 'localhost'.\\nTarget devices cannot reach 'localhost'.\\n\\nPlease enter your computer's actual LAN IP (e.g., 192.168.1.x) in the 'Advertised Flasher IP' box.",
+        "error_prefix": "Error: ",
+        "connection_error_prefix": "Connection error: ",
+        "refreshing_text": "Refreshing...",
+        "unknown_text": "Unknown",
+        "no_files_found": "No files found",
+        "ready_to_flash": "Ready to Flash",
+        "found_text": "Found",
+        "error_saving_settings": "Error saving settings",
+        "no_read_commands_found": "No read commands found. Connect and ensure commands are loaded.",
+        "alert_select_param": "Select at least one parameter.",
+        "reading_please_wait": "Reading... Please wait",
+        "connecting_text": "Connecting...",
+        "not_connected_no_ip": "Not connected and no IP provided.",
+        "connection_failed": "Connection failed",
+        "operation_error_prefix": "Operation error: ",
+        "scanning_text": "Scanning",
+        "no_ports_found": "No ports found",
+        "error_scanning": "Error scanning",
+        "connected_status": "CONNECTED (Session Active)",
+        "disconnect_btn": "Disconnect",
+        "disconnected_message": "Disconnected",
+        "error_text": "Error",
+        "system_text": "System",
+        "info_text": "Info",
+        "ip_required": "IP Required",
+        "connecting_to": "Connecting to",
+        "session_lost": "Session Lost",
+        "network_error": "Network Error",
+        "please_connect_first": "Please connect first",
+        "testing_connection": "Testing Connection",
+        "reset_usb": "Reset USB",
+        "version_short": "Ver",
+        "humidity_short": "Hum",
+        "ext_temp_short": "Ext Temp",
+        "filter_gt_120": "Filter >120",
+        "filter_lt_120": "Filter <120",
+        "filter_prefix": "Filter",
+        "action_cannot_be_deleted": "This action cannot be deleted",
+        "click_to_delete": "Click to DELETE"
+    },
+    "ru": {
+        "login_title": "Вход в Mass Flasher",
+        "header_title": "VSM2 Прошивка и Управление",
+        "username": "Имя пользователя",
+        "password": "Пароль",
+        "login_btn": "Войти",
+        "register_btn": "Регистрация",
+        "new_pass_tg": "Сброс пароля через TG",
+        "user_created": "Пользователь создан! Теперь вы можете войти.",
+        "enter_user_pass": "Введите имя пользователя и пароль для регистрации.",
+        "enter_user_first": "Сначала введите имя пользователя.",
+        "sending_request": "Отправка запроса...",
+        "request_failed": "Ошибка запроса: ",
+        "invalid_credentials": "Неверные учетные данные",
+        "dashboard_title": "VSM2 Прошивка и Управление",
+        "logout": "Выйти",
+        "settings": "Настройки",
+        "target_devices": "Целевые Устройства",
+        "ip_placeholder": "Поддерживаемые форматы: 192.168.1.10, 192.168.1.10-20. Через запятую.",
+        "ssh_creds": "Учетные данные SSH",
+        "advanced_settings": "Расширенные настройки",
+        "advertised_ip_label": "Публичный IP Флешера",
+        "advertised_ip_placeholder": "Авто-определение",
+        "advertised_ip_desc": "Если запуск в Docker/WSL, укажите IP вашего ПК в локальной сети.",
+        "start_flash_btn": "Начать Прошивку и Перезагрузить",
+        "repo_status_title": "Статус Репозитория",
+        "refresh_btn": "Обновить",
+        "live_logs_title": "Логи в реальном времени",
+        "clear_logs_btn": "Очистить",
+        "close_all_tabs": "Закрыть все вкладки",
+        "console_tab": "Консоль",
+        "quick_actions_title": "Быстрые Действия",
+        "config_modal_title": "Настройки",
+        "telegram_settings": "Настройки уведомлений Telegram",
+        "save_btn": "Сохранить",
+        "language_label": "Language / Язык",
+        "flash_started": "Процесс запущен",
+        "connection_error": "Ошибка подключения",
+        "please_enter_ips": "Пожалуйста, введите IP адреса",
+        "repo_refreshing": "Обновление...",
+        "repo_not_init": "Репозиторий не инициализирован (синхронизация при первом запуске)",
+        "repo_branch": "Ветка:",
+        "repo_commit": "Коммит:",
+        "repo_date": "Дата:",
+        "repo_synced": "Синхр.:",
+        "repo_msg": "Сообщ.:",
+        "repo_no_files": "(Файлы не найдены)",
+        "repo_ready_flash": "Готов к прошивке",
+        "repo_found": "Найдено:",
+        "localhost_warning": "⚠️ ВНИМАНИЕ!\\n\\nВы зашли через 'localhost'.\\nУстройства не смогут подключиться к 'localhost'.\\n\\nПожалуйста, введите реальный IP вашего компьютера (например, 192.168.1.x) в поле 'Публичный IP Флешера'.",
+        "username_label": "Имя пользователя",
+        "password_label": "Пароль",
+        "ssh_port": "SSH Порт",
+        "advertised_ip_placeholder_required": "ОБЯЗАТЕЛЬНО: Введите IP LAN (напр. 192.168.1.50)",
+        "loading_text": "Загрузка...",
+        "all_tab": "Все",
+        "initializing_log_stream": "Инициализация потока логов...",
+        "remote_ip_placeholder": "Удаленный IP",
+        "ssh_port_placeholder": "SSH Порт",
+        "user_placeholder": "Польз.",
+        "pass_placeholder": "Пароль",
+        "dev_port_placeholder": "Порт Устр. (Пусто=Авто)",
+        "dev_port_title": "напр. /dev/ttyUSB0",
+        "connect_btn": "Подкл.",
+        "dump_params_title": "Пакетное чтение параметров",
+        "dump_params_btn": "Чтение Парам.",
+        "disconnected_status": "ОТКЛЮЧЕНО",
+        "read_action": "Чтение",
+        "write_action": "Запись",
+        "control_action": "Контроль",
+        "util_action": "Утилиты",
+        "delete_buttons_title": "Удалить кнопки",
+        "configure_buttons_title": "Настроить кнопки",
+        "console_initialized": "Консоль Контроллера инициализирована",
+        "console_help_text": "Введите 'help' или команды, например 'read temp'.",
+        "enter_command_placeholder": "Введите команду...",
+        "customize_quick_actions": "Настройка Быстрых Действий",
+        "select_params_to_dump": "Выберите параметры для выгрузки",
+        "select_all_btn": "Выбрать Все",
+        "deselect_all_btn": "Снять Выбор",
+        "execute_dump_btn": "Выполнить Выгрузку",
+        "dump_results_title": "Результаты Выгрузки",
+        "copy_btn": "Копировать",
+        "download_txt_btn": "Скачать .txt",
+        "close_btn": "Закрыть",
+        "settings_title": "Конфигурация",
+        "secrets_saved_desc": "Секретные данные хранятся на сервере и не отправляются на устройства.",
+        "telegram_settings_title": "Настройки уведомлений Telegram",
+        "bot_token_label": "Токен Бота",
+        "chat_id_label": "ID Чата",
+        "language_settings_title": "Настройки Языка",
+        "cancel_btn": "Отмена",
+        "close_tab_title": "Закрыть вкладку (история сохранится во 'Все')",
+        "alert_enter_ips": "Пожалуйста, введите IP адреса",
+        "alert_localhost_warning": "⚠️ ВНИМАНИЕ!\\n\\nВы зашли через 'localhost'.\\nУстройства не смогут подключиться к 'localhost'.\\n\\nПожалуйста, введите реальный IP вашего компьютера (например, 192.168.1.x) в поле 'Публичный IP Флешера'.",
+        "error_prefix": "Ошибка: ",
+        "connection_error_prefix": "Ошибка подключения: ",
+        "refreshing_text": "Обновление...",
+        "unknown_text": "Неизвестно",
+        "no_files_found": "Файлы не найдены",
+        "ready_to_flash": "Готов к прошивке",
+        "found_text": "Найдено",
+        "error_saving_settings": "Ошибка сохранения настроек",
+        "no_read_commands_found": "Команды чтения не найдены. Подключитесь.",
+        "alert_select_param": "Выберите хотя бы один параметр.",
+        "reading_please_wait": "Чтение... Подождите",
+        "connecting_text": "Подключение...",
+        "not_connected_no_ip": "Нет подключения и не указан IP.",
+        "connection_failed": "Ошибка подключения",
+        "operation_error_prefix": "Ошибка операции: ",
+        "scanning_text": "Сканирование",
+        "no_ports_found": "Порты не найдены",
+        "error_scanning": "Ошибка сканирования",
+        "connected_status": "ПОДКЛЮЧЕНО (Сессия активна)",
+        "disconnect_btn": "Отключить",
+        "disconnected_message": "Отключено",
+        "error_text": "Ошибка",
+        "system_text": "Система",
+        "info_text": "Инфо",
+        "ip_required": "Требуется IP",
+        "connecting_to": "Подключение к",
+        "session_lost": "Сессия потеряна",
+        "network_error": "Ошибка сети",
+        "please_connect_first": "Сначала подключитесь",
+        "testing_connection": "Тест подключения",
+        "reset_usb": "Сброс USB",
+        "version_short": "Вер",
+        "humidity_short": "Влаж",
+        "ext_temp_short": "Внеш Темп",
+        "filter_gt_120": "Фильтр >120",
+        "filter_lt_120": "Фильтр <120",
+        "filter_prefix": "Filter",  # Keep filter prefix logic in English or map it? Command is consistent, label changes.
+        "action_cannot_be_deleted": "Это действие нельзя удалить",
+        "click_to_delete": "Нажмите, чтобы УДАЛИТЬ"
+    }
+}
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_change_this_for_prod' 
@@ -309,9 +599,18 @@ def login():
             session['user'] = username
             return redirect(url_for('index'))
         else:
-            return render_template('login.html', error="Invalid credentials")
+            lang = session.get('pre_login_lang', 'en')
+            t = TRANSLATIONS.get(lang, TRANSLATIONS['en'])
+            return render_template('login.html', error=t["invalid_credentials"], t=t, current_lang=lang)
             
-    return render_template('login.html')
+    lang = request.args.get('lang')
+    if lang:
+        session['pre_login_lang'] = lang
+    else:
+        lang = session.get('pre_login_lang', 'en')
+        
+    t = TRANSLATIONS.get(lang, TRANSLATIONS['en'])
+    return render_template('login.html', t=t, current_lang=lang)
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -337,10 +636,17 @@ def logout():
     session.pop('user', None)
     return redirect(url_for('login'))
 
+# --- CONFIG & VERSION ---
+APP_VERSION = "1.2.1"
+
 @app.route('/')
 @login_required
 def index():
-    return render_template('index.html', user=session['user'])
+    config = load_user_config(session['user'])
+    lang = config.get('language', 'en')
+    t = TRANSLATIONS.get(lang, TRANSLATIONS['en'])
+    available_languages = {"en": "English", "ru": "Русский"}
+    return render_template('index.html', user=session['user'], version=APP_VERSION, t=t, current_lang=lang, available_languages=available_languages)
 
 @app.route('/settings', methods=['GET', 'POST'])
 @login_required
@@ -358,6 +664,9 @@ def settings():
                 config['telegram_token'] = request.form.get('telegram_token')
             if request.form.get('telegram_chat_id') is not None:
                 config['telegram_chat_id'] = request.form.get('telegram_chat_id')
+                
+            if request.form.get('language') is not None:
+                config['language'] = request.form.get('language')
             
         save_user_config(username, config)
         return jsonify({"status": "saved"})
@@ -384,6 +693,17 @@ def flash_devices():
         
     log_queue.put(f"[SYSTEM] User '{username}' starting batch for {len(ips)} devices.")
     
+    # --- AUTO-UPDATE REPO ---
+    # Trigger a git pull to ensure we are flashing the absolute latest version.
+    log_queue.put("[SYSTEM] Checking for repository updates...")
+    # Run sync in main thread (blocking) or background? 
+    # Blocking is safer to ensure we don't flash old code while pulling.
+    try:
+         sync_repo()
+         log_queue.put("[SYSTEM] Repository check complete.")
+    except Exception as e:
+         log_queue.put(f"[SYSTEM] [WARN] Repository update failed: {e}")
+    
     config = load_user_config(username)
     tg_token = config.get("telegram_token", "")
     tg_chat_id = config.get("telegram_chat_id", "")
@@ -392,14 +712,69 @@ def flash_devices():
     def notification_callback(ip, status, error_detail=None):
         send_telegram_notification(ip, status, tg_token, tg_chat_id, error_detail)
 
+    # Detect Host IP to advertise to devices (solves Docker networking issues)
+    # Priority:
+    # 1. User-supplied IP from UI
+    # 2. Host header IP (if valid external IP)
+    # 3. Fallback to auto-detection
+    
+    advertised_ip = data.get('advertised_ip', '').strip()
+    
+    if not advertised_ip:
+        # If using Docker, 'request.host' usually contains the external access IP (Host header)
+        advertised_ip = request.host.split(':')[0]
+    
+    log_queue.put(f"[SYSTEM] Advertising Host IP: {advertised_ip} (Version: {APP_VERSION})")
+
     for ip in ips:
         # Pass callback
         worker = FlashWorker(ip, ssh_user, ssh_pass, log_queue, port=port, 
                            completion_callback=notification_callback, 
-                           tg_token=tg_token, tg_chat_id=tg_chat_id)
+                           tg_token=tg_token, tg_chat_id=tg_chat_id,
+                           advertised_ip=advertised_ip)
         worker.start()
         
     return jsonify({"status": "started", "count": len(ips)})
+
+
+@app.route('/api/repo/status')
+@login_required
+def get_repo_status():
+    """Returns the current git status of the cached repo."""
+    status = {
+        "exists": False,
+        "commit": None,
+        "author": None,
+        "date": None,
+        "message": None,
+        "branch": "unknown",
+        "last_synced": None
+    }
+    
+    if os.path.exists(os.path.join(REPO_CACHE_DIR, '.git')):
+        status["exists"] = True
+        try:
+            repo = git.Repo(REPO_CACHE_DIR)
+            head = repo.head.commit
+            status["commit"] = head.hexsha[:7]
+            status["author"] = str(head.author)
+            status["date"] = str(head.committed_datetime)
+            status["message"] = head.message.strip()
+            status["branch"] = repo.active_branch.name
+            
+            # Get timestamp of the FETCH_HEAD to see when we last talked to remote, 
+            # OR just use file mtime of a key file
+            fetch_head = os.path.join(REPO_CACHE_DIR, '.git', 'FETCH_HEAD')
+            if os.path.exists(fetch_head):
+                import datetime
+                mtime = os.path.getmtime(fetch_head)
+                status["last_synced"] = str(datetime.datetime.fromtimestamp(mtime))
+            else:
+                 status["last_synced"] = "Never (Local only?)"
+        except Exception as e:
+            status["error"] = str(e)
+            
+    return jsonify(status)
 
 @app.route('/stream')
 @login_required

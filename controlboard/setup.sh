@@ -216,8 +216,18 @@ echo "==============================================="
 # -----------------------------------------------------
 # 3. ПРОВЕРКА ПРАВ
 # -----------------------------------------------------
+# Call sudo_smart early to verify access and fix permissions
 sudo_smart
 while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
+# Fix permissions on state file if it exists (owned by root?)
+if [ -f "$STATE_FILE" ]; then
+     # Try to own it
+     if ! [ -w "$STATE_FILE" ]; then
+         echo "[WARN] Fixing permissions for $STATE_FILE..."
+         sudo chown "$USER:$USER" "$STATE_FILE" 2>/dev/null || sudo rm -f "$STATE_FILE"
+     fi
+fi
 
 if ! groups | grep -q "dialout"; then
     echo "[!] Пользователь $USER не имеет доступа к COM-портам."

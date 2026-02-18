@@ -94,23 +94,30 @@
 <body>
 
     <div class="login-box">
-        <h2>VSM2 Flash&Control</h2>
+        <h2>{{ t.header_title }}</h2>
         {% if error %}
         <div class="error">{{ error }}</div>
         {% endif %}
         <div id="message" class="success" style="display:none;"></div>
 
         <form method="POST" action="/login">
-            <input type="text" name="username" id="username" placeholder="Username" required>
-            <input type="password" name="password" id="password" placeholder="Password" required>
-            <button type="submit" class="btn btn-login">Login</button>
+            <input type="text" name="username" id="username" placeholder="{{ t.username }}" required>
+            <input type="password" name="password" id="password" placeholder="{{ t.password }}" required>
+            <button type="submit" class="btn btn-login">{{ t.login_btn }}</button>
         </form>
 
-        <button onclick="register()" class="btn btn-register">Register</button>
+        <button onclick="register()" class="btn btn-register">{{ t.register_btn }}</button>
         {% if error %}
         <button onclick="resetViaTelegram()" class="btn btn-reset"
-            style="background-color: #bb86fc; color: #000; margin-top: 10px;">New pass via TG Bot</button>
+            style="background-color: #bb86fc; color: #000; margin-top: 10px;">{{ t.new_pass_tg }}</button>
         {% endif %}
+
+        <div style="margin-top: 20px; font-size: 0.9em;">
+            <a href="?lang=en"
+                style="color: #888; text-decoration: none; margin-right: 10px; font-weight: {% if current_lang == 'en' %}bold{% else %}normal{% endif %};">English</a>
+            <a href="?lang=ru"
+                style="color: #888; text-decoration: none; font-weight: {% if current_lang == 'ru' %}bold{% else %}normal{% endif %};">Русский</a>
+        </div>
     </div>
 
     <script>
