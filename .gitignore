@@ -15,3 +15,9 @@ implementation_plan.md
 analysis_report.md
 git_status.txt
 CONTEXT.md
+
+# Temporary and Secret Scripts
+temp_scripts/
+*_secret.py
+redeploy.py
+deploy.py
