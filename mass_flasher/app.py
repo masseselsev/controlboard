@@ -14,6 +14,9 @@ import git
 import threading
 import socket  # Added for IP detection
 import subprocess # For hostname -I
+from datetime import datetime
+from datetime import timezone as dt_timezone # Rename to avoid conflict with var 'timezone'
+from zoneinfo import ZoneInfo
 
 # --- REPO CACHE SETTINGS ---
 # Determine REPO_CACHE_DIR based on environment
@@ -645,7 +648,7 @@ def logout():
     return redirect(url_for('login'))
 
 # --- CONFIG & VERSION ---
-APP_VERSION = "1.2.4"
+APP_VERSION = "1.2.5"
 
 def get_available_ips():
     """Returns a list of all IPv4 addresses on the host."""
@@ -814,6 +817,14 @@ def flash_devices():
 @login_required
 def get_repo_status():
     """Returns the current git status of the cached repo."""
+    username = session['user']
+    config = load_user_config(username)
+    user_tz_str = config.get("timezone", "UTC")
+    try:
+        user_tz = ZoneInfo(user_tz_str)
+    except:
+        user_tz = dt_timezone.utc
+
     status = {
         "exists": False,
         "commit": None,
@@ -831,7 +842,8 @@ def get_repo_status():
             head = repo.head.commit
             status["commit"] = head.hexsha[:7]
             status["author"] = str(head.author)
-            status["date"] = str(head.committed_datetime)
+            # Convert commit time to user timezone
+            status["date"] = str(head.committed_datetime.astimezone(user_tz))
             status["message"] = head.message.strip()
             status["branch"] = repo.active_branch.name
             
@@ -839,9 +851,10 @@ def get_repo_status():
             # OR just use file mtime of a key file
             fetch_head = os.path.join(REPO_CACHE_DIR, '.git', 'FETCH_HEAD')
             if os.path.exists(fetch_head):
-                import datetime
                 mtime = os.path.getmtime(fetch_head)
-                status["last_synced"] = str(datetime.datetime.fromtimestamp(mtime))
+                # Parse as UTC then convert
+                dt_synced = datetime.fromtimestamp(mtime, tz=dt_timezone.utc).astimezone(user_tz)
+                status["last_synced"] = dt_synced.strftime("%Y-%m-%d %H:%M:%S%z")
             else:
                  status["last_synced"] = "Never (Local only?)"
         except Exception as e:
