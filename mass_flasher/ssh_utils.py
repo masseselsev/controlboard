@@ -3,6 +3,8 @@ import threading
 import time
 import socket
 import re
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 def clean_ansi(text):
     # Aggressively remove ANSI escape sequences
@@ -24,7 +26,7 @@ def get_source_ip(target_ip, port=22):
         return None
 
 class FlashWorker(threading.Thread):
-    def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None, tg_token="", tg_chat_id="", advertised_ip=None):
+    def __init__(self, ip, username, password, log_queue, port=22, completion_callback=None, tg_token="", tg_chat_id="", advertised_ip=None, timezone="UTC"):
         super().__init__()
         self.ip = ip
         self.username = username
@@ -35,11 +37,23 @@ class FlashWorker(threading.Thread):
         self.tg_token = tg_token
         self.tg_chat_id = tg_chat_id
         self.advertised_ip = advertised_ip
+        self.timezone = timezone
         self.status = "FAILURE" # SUCCESS, SKIPPED, FAILURE
         self.last_log_line = ""
 
     def log(self, message):
-        timestamp = time.strftime("%H:%M:%S")
+        try:
+            # Handle potential invalid timezone strings gracefully
+            tz = ZoneInfo(self.timezone) if self.timezone else None
+        except Exception:
+            tz = None
+            
+        if tz:
+            timestamp = datetime.now(tz).strftime("%H:%M:%S")
+        else:
+            # Fallback to system local time if TZ invalid or not set
+            timestamp = time.strftime("%H:%M:%S")
+            
         formatted = f"[{timestamp}] [{self.ip}] {message}"
         self.log_queue.put(formatted)
 

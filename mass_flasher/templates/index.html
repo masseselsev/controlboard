@@ -547,6 +547,24 @@
                 {% endfor %}
             </select>
 
+            <label for="user_timezone" style="margin-top: 10px; display:block;">{{ t.timezone_label }}</label>
+            <select id="user_timezone"
+                style="width: 100%; padding: 8px; margin-bottom: 10px; background: #333; color: white; border: 1px solid #555;">
+                <option value="UTC">UTC</option>
+                <option value="Europe/Moscow">Europe/Moscow (UTC+3)</option>
+                <option value="Asia/Yekaterinburg">Asia/Yekaterinburg (UTC+5)</option>
+                <option value="Asia/Omsk">Asia/Omsk (UTC+6)</option>
+                <option value="Asia/Novosibirsk">Asia/Novosibirsk (UTC+7)</option>
+                <option value="Asia/Krasnoyarsk">Asia/Krasnoyarsk (UTC+7)</option>
+                <option value="Asia/Irkutsk">Asia/Irkutsk (UTC+8)</option>
+                <option value="Asia/Yakutsk">Asia/Yakutsk (UTC+9)</option>
+                <option value="Asia/Vladivostok">Asia/Vladivostok (UTC+10)</option>
+                <option value="Asia/Magadan">Asia/Magadan (UTC+11)</option>
+                <option value="Asia/Kamchatka">Asia/Kamchatka (UTC+12)</option>
+                <option value="Europe/Kaliningrad">Europe/Kaliningrad (UTC+2)</option>
+                <option value="Europe/Samara">Europe/Samara (UTC+4)</option>
+            </select>
+
             <div style="margin-top: 20px; display:flex; gap:10px;">
                 <button onclick="saveSettings()">{{ t.save_btn }}</button>
                 <button class="secondary" onclick="closeSettings()">{{ t.cancel_btn }}</button>
@@ -998,6 +1016,9 @@
                         const langEl = document.getElementById('user_lang');
                         if (langEl) langEl.value = data.language || 'en';
 
+                        const tzEl = document.getElementById('user_timezone');
+                        if (tzEl) tzEl.value = data.timezone || 'UTC';
+
                         document.getElementById('settingsModal').style.display = "block";
                     } catch (e) {
                         alert("Error opening settings: " + e);
@@ -1015,11 +1036,17 @@
             const token = document.getElementById('tel_token').value;
             const chatId = document.getElementById('tel_chat_id').value;
             const lang = document.getElementById('user_lang').value;
+            const timezone = document.getElementById('user_timezone').value;
 
             fetch('/settings', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `telegram_token=${encodeURIComponent(token)}&telegram_chat_id=${encodeURIComponent(chatId)}&language=${encodeURIComponent(lang)}`
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    telegram_token: token,
+                    telegram_chat_id: chatId,
+                    language: lang,
+                    timezone: timezone
+                })
             })
                 .then(res => res.json())
                 .then(data => {

@@ -98,6 +98,7 @@ TRANSLATIONS = {
         "console_tab": "Console",
         "quick_actions_title": "Quick Actions",
         "config_modal_title": "Configuration",
+        "timezone_label": "Timezone",
         "telegram_settings": "Telegram Notification Settings",
         "save_btn": "Save",
         "language_label": "Language / Язык",
@@ -644,7 +645,7 @@ def logout():
     return redirect(url_for('login'))
 
 # --- CONFIG & VERSION ---
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.2.3"
 
 def get_available_ips():
     """Returns a list of all IPv4 addresses on the host."""
@@ -775,6 +776,7 @@ def flash_devices():
     config = load_user_config(username)
     tg_token = config.get("telegram_token", "")
     tg_chat_id = config.get("telegram_chat_id", "")
+    user_timezone = config.get("timezone", "UTC")
 
     # Create a closure to capture token/chat_id for THIS batch
     def notification_callback(ip, status, error_detail=None):
@@ -801,7 +803,8 @@ def flash_devices():
         worker = FlashWorker(ip, ssh_user, ssh_pass, log_queue, port=port, 
                            completion_callback=notification_callback, 
                            tg_token=tg_token, tg_chat_id=tg_chat_id,
-                           advertised_ip=advertised_ip)
+                           advertised_ip=advertised_ip,
+                           timezone=user_timezone)
         worker.start()
         
     return jsonify({"status": "started", "count": len(ips)})
