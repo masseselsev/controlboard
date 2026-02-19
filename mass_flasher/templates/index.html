@@ -296,6 +296,10 @@
         .console-btn:hover {
             opacity: 0.9;
         }
+
+        .ip-option:hover {
+            background-color: var(--tab-active-bg);
+        }
     </style>
 </head>
 
@@ -330,20 +334,32 @@
                     <label for="port" style="display:block; margin-bottom:5px;">{{ t.ssh_port }}</label>
                     <input type="number" id="port" value="2222" style="width: 100%;">
                 </div>
-                <div>
+                <div style="position: relative; margin-bottom: 15px;">
                     <label for="advertisedIp" style="display:block; margin-bottom:5px;">{{ t.advertised_ip_label
                         }}</label>
-                    <input type="text" id="advertisedIp" list="ip-list" placeholder="{{ t.advertised_ip_placeholder }}"
-                        style="width:100%">
-                    <datalist id="ip-list">
-                        {% for ip in local_ips %}
-                        <option value="{{ ip }}">{{ ip }} (Local)</option>
-                        {% endfor %}
-                    </datalist>
-                    <div style="font-size: 0.75em; color: #888; margin-top: -10px; margin-bottom: 15px;">
-                        Detected: {% for ip in local_ips %}<span style="color:var(--success-color); cursor:pointer;"
-                            onclick="document.getElementById('advertisedIp').value='{{ ip }}'">{{ ip }}</span>{% if not
-                        loop.last %}, {% endif %}{% endfor %}
+                    <div style="display:flex; position:relative;">
+                        <input type="text" id="advertisedIp" placeholder="{{ t.advertised_ip_placeholder }}"
+                            style="width:100%; border-right:none; border-top-right-radius:0; border-bottom-right-radius:0; margin-bottom:0;"
+                            autocomplete="off">
+                        <button type="button" id="ip-dropdown-btn" onclick="toggleIpDropdown(event)"
+                            style="width:40px; margin-bottom:0; padding:0; border-left:none; border-top-left-radius:0; border-bottom-left-radius:0; background:var(--input-bg); color:var(--text-color); border:1px solid var(--border-color); cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                            ▼
+                        </button>
+
+                        <!-- Dropdown List -->
+                        <div id="custom-ip-dropdown"
+                            style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--card-bg); border:1px solid var(--border-color); z-index:100; max-height:200px; overflow-y:auto; box-shadow: 0 4px 8px rgba(0,0,0,0.8);">
+                            {% for ip in local_ips %}
+                            <div class="ip-option" onclick="selectIp('{{ ip }}')"
+                                style="padding:10px; cursor:pointer; border-bottom:1px solid var(--border-color);">
+                                <span style="font-weight:bold; color:var(--text-color);">{{ ip }}</span>
+                                <span style="font-size:0.8em; color:#888;">(Local)</span>
+                            </div>
+                            {% endfor %}
+                            {% if not local_ips %}
+                            <div style="padding:10px; color:#888; font-style:italic;">No IPs detected</div>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
 
@@ -1117,102 +1133,6 @@
                     }
 
                     readCmds.forEach(cmd => {
-                        const name = cmd.value.replace('read ', '');
-                        const div = document.createElement('div');
-                        div.innerHTML = `
-                            <label style="font-weight:normal; display:flex; align-items:center;">
-                                <input type="checkbox" name="dump-chk" value="${name}" style="width:auto; margin-right:5px;"> 
-                                ${name}
-                            </label>
-                        `;
-                        list.appendChild(div);
-                    });
-
-                    document.getElementById('dumpModal').style.display = 'block';
-                });
-        }
-
-        function toggleDumpChecks(state) {
-            document.querySelectorAll('input[name="dump-chk"]').forEach(box => box.checked = state);
-        }
-
-        function executeDump() {
-            const boxes = document.querySelectorAll('input[name="dump-chk"]:checked');
-            const commands = Array.from(boxes).map(b => b.value);
-
-            if (commands.length === 0) {
-                alert(T.alert_select_param);
-                return;
-            }
-
-            const btn = document.getElementById('btn-exec-dump');
-            const originalText = btn.innerText;
-            btn.innerText = T.reading_please_wait;
-            btn.disabled = true;
-
-            fetch('/api/console/batch_read', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ commands: commands })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.error) {
-                        alert(T.error_prefix + data.error);
-                    } else {
-                        document.getElementById('dumpModal').style.display = 'none';
-                        document.getElementById('dump-output').value = data.text;
-                        document.getElementById('dumpResultModal').style.display = 'block';
-                    }
-                })
-                .catch(e => alert(T.connection_error_prefix + e))
-                .finally(() => {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                });
-        }
-
-        function copyDump() {
-            const copyText = document.getElementById("dump-output");
-            copyText.select();
-            document.execCommand("copy"); // Legacy but works widely
-            // Or navigator.clipboard.writeText(copyText.value);
-        }
-
-        function downloadDump() {
-            const text = document.getElementById("dump-output").value;
-            const blob = new Blob([text], { type: 'text/plain' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            // Generate filename with timestamp
-            const now = new Date();
-            const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            a.download = `dump_${ts}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-        }
-
-
-        function openDumpModal() {
-            // Check connection first? - No strict need, backend rejects. But better UX if we fetch commands.
-            fetch('/api/console/commands')
-                .then(res => res.json())
-                .then(data => {
-                    const list = document.getElementById('dump-list');
-                    list.innerHTML = '';
-
-                    // Filter just READ commands
-                    const readCmds = data.filter(c => c.value.startsWith('read '));
-
-                    if (readCmds.length === 0) {
-                        list.innerHTML = `<div style="grid-column:span 3;">${T.no_read_commands_found}</div>`;
-                    }
-
-                    readCmds.forEach(cmd => {
-                        const name = cmd.value.replace('read ', '');
                         const div = document.createElement('div');
                         div.innerHTML = `
                             <label style="font-weight:normal; display:flex; align-items:center;">
