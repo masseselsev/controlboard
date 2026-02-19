@@ -1699,6 +1699,28 @@
                 });
         }
 
+        // --- IP Dropdown Logic ---
+        function toggleIpDropdown(e) {
+            e.stopPropagation();
+            const d = document.getElementById('custom-ip-dropdown');
+            if (d) {
+                d.style.display = (d.style.display === 'block') ? 'none' : 'block';
+            }
+        }
+
+        function selectIp(ip) {
+            document.getElementById('advertisedIp').value = ip;
+            const d = document.getElementById('custom-ip-dropdown');
+            if (d) d.style.display = 'none';
+        }
+
+        // Close dropdown when clicking outside
+        window.addEventListener('click', function (e) {
+            const d = document.getElementById('custom-ip-dropdown');
+            if (d && d.style.display === 'block') {
+                d.style.display = 'none';
+            }
+        });
     </script>
 
 </body>
