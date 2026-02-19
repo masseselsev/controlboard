@@ -360,24 +360,27 @@
         </div>
 
         <!-- Repository Status Card -->
+        <!-- Repository Status Card -->
         <div class="card">
-            <h2 style="margin-bottom: 10px;">{{ t.repo_status_title }}</h2>
-            <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: start;">
-                <!-- Left: Status Info -->
-                <div id="repo-info" style="flex: 1; min-width: 300px; font-size: 0.9em; color: #ccc;">
-                    {{ t.loading_text }}
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;">
+                <!-- Left Column: Title + Button + Info -->
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h2 style="margin: 0;">{{ t.repo_status_title }}</h2>
+                        <button class="secondary" onclick="loadRepoStatus()"
+                            style="width:auto; font-size: 0.8em; padding: 5px 10px; height: 28px; display: flex; align-items: center;">
+                            🔄 {{ t.refresh_btn }}
+                        </button>
+                    </div>
+                    <div id="repo-info" style="font-size: 0.9em; color: #ccc; line-height: 1.6;">
+                        {{ t.loading_text }}
+                    </div>
                 </div>
 
-                <!-- Right: Files and Toolbar -->
-                <div style="flex: 1; min-width: 300px; display: flex; flex-direction: column; gap: 10px;">
-                    <div style="text-align: right;">
-                        <button class="secondary" onclick="loadRepoStatus()"
-                            style="width:auto; font-size: 0.8em; padding: 5px 10px;">🔄 {{ t.refresh_btn }}</button>
-                    </div>
-                    <div
-                        style="max-height: 140px; overflow-y: auto; background: #111; padding: 10px; border-radius: 4px; font-family: monospace;">
-                        <ul id="file-list" style="list-style: none; padding-left: 0; margin: 0;"></ul>
-                    </div>
+                <!-- Right Column: File List -->
+                <div
+                    style="max-height: 140px; overflow-y: auto; background: #111; padding: 10px; border-radius: 4px; font-family: monospace; border: 1px solid #333; height: 100%;">
+                    <ul id="file-list" style="list-style: none; padding-left: 0; margin: 0;"></ul>
                 </div>
             </div>
         </div>

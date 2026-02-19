@@ -3,6 +3,9 @@ __pycache__/
 *$py.class
 .venv/
 env/
+venv/
+*.log
+cookies.txt
 .env
 .DS_Store
 mass_flasher/data/*
