@@ -254,4 +254,14 @@ def parse_ip_ranges(input_str):
         if re.match(r'^\d+\.\d+\.\d+\.\d+$', part):
             ips.add(part)
             
-    return sorted(list(ips), key=lambda ip: socket.inet_aton(ip))
+    valid_ips = []
+    for ip in ips:
+        try:
+            # Validate IP format strictly to prevent crashes in inet_aton
+            socket.inet_aton(ip)
+            valid_ips.append(ip)
+        except OSError:
+            pass # Invalid IP, ignore
+
+    # Sort safely
+    return sorted(valid_ips, key=lambda ip: socket.inet_aton(ip))

@@ -774,6 +774,7 @@ def flash_devices():
         port = 2222
     
     ips = parse_ip_ranges(ip_string)
+    log_queue.put(f"[SYSTEM] Parsed IPs: {ips}")
 
     if not ips:
         return jsonify({"error": "No valid IPs found"}), 400
@@ -796,7 +797,7 @@ def flash_devices():
 
     ips = available_ips # Proceed only with available
         
-    log_queue.put(f"[SYSTEM] User '{username}' starting batch for {len(ips)} devices.")
+    log_queue.put(f"[SYSTEM] User '{username}' starting batch for {len(ips)} devices: {ips}")
     
     # --- AUTO-UPDATE REPO ---
     # Trigger a git pull to ensure we are flashing the absolute latest version.
