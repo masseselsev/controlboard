@@ -653,15 +653,30 @@ APP_VERSION = "1.2.6"
 def get_available_ips():
     """Returns a list of all IPv4 addresses on the host."""
     ips = []
+    
+    # Method 1: psutil (Most reliable)
     try:
-        # Method 1: hostname -I (Debian/Ubuntu)
-        result = subprocess.check_output(['hostname', '-I'], timeout=2).decode().strip()
-        ips.extend(result.split())
-    except:
+        import psutil
+        for interface, addrs in psutil.net_if_addrs().items():
+            for addr in addrs:
+                if addr.family == socket.AF_INET and not addr.address.startswith("127."):
+                    ips.append(addr.address)
+    except ImportError:
         pass
+    except Exception as e:
+        print(f"Error with psutil IP detection: {e}")
+
+    # Method 2: hostname -I (Debian/Ubuntu fallback)
+    if not ips:
+        try:
+            result = subprocess.check_output(['hostname', '-I'], timeout=2).decode().strip()
+            ips.extend(result.split())
+        except:
+            pass
         
+    # Method 3: socket (Fallback main IP)
+    # Always try this if we have very few IPs or to be safe
     try:
-        # Method 2: socket (Fallback main IP)
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(0)
         try:
