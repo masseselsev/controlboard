@@ -65,7 +65,7 @@ class FlashWorker(threading.Thread):
         reboot_triggered = False
 
         try:
-            client.connect(self.ip, port=self.port, username=self.username, password=self.password, timeout=10)
+            client.connect(self.ip, port=self.port, username=self.username, password=self.password, timeout=5)
             self.log("Connected. Starting flash process...")
             
             # Construct the command
@@ -103,11 +103,11 @@ class FlashWorker(threading.Thread):
                  # Local Setup URL
                  setup_url = f"{base_url}/files/controlboard/setup.sh"
                  # We pass the setup_url as argument so the script knows where it came from (logic in setup.sh)
-                 # ADDED TIMEOUT --timeout=10 to prevent hanging
-                 cmd = env_vars + f'mkdir -p ~/controlboard; if wget --timeout=10 -q -O ~/controlboard/setup.sh "{setup_url}"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "{setup_url}" --flash-cleanup; else echo "Error: Failed to download setup.sh from {setup_url}"; exit 1; fi'
+                 # ADDED TIMEOUT --timeout=5 to prevent hanging
+                 cmd = env_vars + f'mkdir -p ~/controlboard; if wget --timeout=5 -q -O ~/controlboard/setup.sh "{setup_url}"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "{setup_url}" --flash-cleanup; else echo "Error: Failed to download setup.sh from {setup_url} (Timeout 5s)"; exit 1; fi'
             else:
                  # Fallback to GitHub
-                 cmd = env_vars + 'mkdir -p ~/controlboard; url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; if wget --timeout=10 -q -O ~/controlboard/setup.sh "$url"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "$url" --flash-cleanup; else echo "Error: Failed to download setup.sh"; exit 1; fi'
+                 cmd = env_vars + 'mkdir -p ~/controlboard; url="https://raw.githubusercontent.com/masseselsev/controlboard/main/controlboard/setup.sh?v=$(date +%s)"; if wget --timeout=5 -q -O ~/controlboard/setup.sh "$url"; then chmod +x ~/controlboard/setup.sh; ~/controlboard/setup.sh "$url" --flash-cleanup; else echo "Error: Failed to download setup.sh (Timeout 5s)"; exit 1; fi'
             
             # Execute
             stdin, stdout, stderr = client.exec_command(cmd, get_pty=True)
@@ -197,8 +197,10 @@ class FlashWorker(threading.Thread):
                 self.log("SUCCESS: Flash completed and reboot triggered (Connection closed).")
                 self.status = "SUCCESS"
             else:
-                self.log(f"FAILURE: Process exited with code {exit_status}")
+                msg = f"Process exited with code {exit_status}"
+                self.log(f"FAILURE: {msg}")
                 self.status = "FAILURE"
+                error_detail = msg
                 
         except Exception as e:
             error_detail = str(e)
