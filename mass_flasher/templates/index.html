@@ -340,6 +340,11 @@
                         <option value="{{ ip }}">{{ ip }} (Local)</option>
                         {% endfor %}
                     </datalist>
+                    <div style="font-size: 0.75em; color: #888; margin-top: -10px; margin-bottom: 15px;">
+                        Detected: {% for ip in local_ips %}<span style="color:var(--success-color); cursor:pointer;"
+                            onclick="document.getElementById('advertisedIp').value='{{ ip }}'">{{ ip }}</span>{% if not
+                        loop.last %}, {% endif %}{% endfor %}
+                    </div>
                 </div>
 
                 <!-- Row 2 -->
