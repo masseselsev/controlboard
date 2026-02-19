@@ -662,25 +662,41 @@ def get_available_ips():
                 if addr.family == socket.AF_INET and not addr.address.startswith("127."):
                     ips.append(addr.address)
     except ImportError:
-        pass
+        print("[IP_DETECT] psutil not installed")
     except Exception as e:
-        print(f"Error with psutil IP detection: {e}")
+        print(f"[IP_DETECT] Error with psutil IP detection: {e}")
 
     # Method 2: hostname -I (Debian/Ubuntu fallback)
-    if not ips:
-        try:
-            result = subprocess.check_output(['hostname', '-I'], timeout=2).decode().strip()
-            ips.extend(result.split())
-        except:
-            pass
+    try:
+        result = subprocess.check_output(['hostname', '-I'], timeout=2).decode().strip()
+        ips.extend(result.split())
+    except Exception as e:
+        # print(f"[IP_DETECT] hostname -I failed: {e}")
+        pass
         
-    # Method 3: socket (Fallback main IP)
-    # Always try this if we have very few IPs or to be safe
+    # Method 3: ip addr (Robust fallback)
+    try:
+        # Try 'ip -4 -o addr' for cleaner output. 
+        # -4: IPv4 only, -o: One line per address
+        result = subprocess.check_output(['ip', '-4', '-o', 'addr'], timeout=2).decode().strip()
+        # Output ex: 2: enp88s0    inet 172.16.5.239/24 ...
+        for line in result.split('\n'):
+            parts = line.split()
+            # In -o mode, 'inet' is usually followed by the IP/CIDR
+            if 'inet' in parts:
+                idx = parts.index('inet')
+                if idx + 1 < len(parts):
+                    cidr = parts[idx + 1]
+                    ip = cidr.split('/')[0]
+                    ips.append(ip)
+    except Exception as e:
+        print(f"[IP_DETECT] ip addr failed: {e}")
+
+    # Method 4: socket (Fallback main IP)
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.settimeout(0)
         try:
-            # doesn't even have to be reachable
             s.connect(('10.254.254.254', 1))
             ip = s.getsockname()[0]
             if ip not in ips:
@@ -697,6 +713,8 @@ def get_available_ips():
     for ip in ips:
         if ip and not ip.startswith('127.') and ip not in unique_ips:
             unique_ips.append(ip)
+            
+    print(f"[IP_DETECT] Found IPs: {unique_ips}")
     return unique_ips
 
 @app.route('/')
