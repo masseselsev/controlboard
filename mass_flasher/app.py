@@ -349,6 +349,7 @@ log_queue = queue.Queue() # Ingestion queue (Producers write here)
 subscribers = []
 LOG_HISTORY = []
 MAX_HISTORY = 500
+CONSOLE_SESSIONS = {}
 
 def broadcast_logger():
     """Reads from log_queue and broadcasts to all subscribers."""
@@ -644,7 +645,13 @@ def register():
 
 @app.route('/logout')
 def logout():
-    session.pop('user', None)
+    username = session.pop('user', None)
+    if username and username in CONSOLE_SESSIONS:
+        try:
+            CONSOLE_SESSIONS[username].close()
+        except:
+            pass
+        CONSOLE_SESSIONS.pop(username, None)
     return redirect(url_for('login'))
 
 # --- CONFIG & VERSION ---
@@ -1053,7 +1060,7 @@ def console_connect():
             CONSOLE_SESSIONS[username].close()
         except:
             pass
-        del CONSOLE_SESSIONS[username]
+        CONSOLE_SESSIONS.pop(username, None)
 
     # Determine Local IP (Base URL)
     # We need the IP of the interface that connects to the target.
@@ -1070,167 +1077,117 @@ def console_connect():
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        ssh.connect(target_ip, port=ssh_port, username=ssh_user, password=ssh_pass, timeout=15)
-
-        # 1. Check/Deploy Tools
-        # Check if ~/controlboard/app.py exists
-        stdin, stdout, stderr = ssh.exec_command("test -f ~/controlboard/app.py && echo 'FOUND' || echo 'MISSING'")
-        status = stdout.read().decode().strip()
-        
-        if status == 'MISSING':
-            # Auto-Deploy from local sources
-            # We assume the controlboard repo is mounted at /app/controlboard_repo
-            repo_path = "/app/controlboard_repo"
-            dist_path = os.path.join(repo_path, "dist")
-            
-            if not os.path.exists(repo_path):
-                # Fallback if running outside docker or path diff (local dev)
-                repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "controlboard"))
-                dist_path = os.path.join(repo_path, "dist") 
-            
-            # Send status update (Need a way to send partial output? 
-            # We are inside the connect request, we can't stream yet. 
-            # We'll just do it and return result log.)
-            
-            # Send status update via SSE for real-time feedback
-            boot_logs = []
-            def log_boot(msg):
-                boot_logs.append(msg)
-                # Stream to frontend via SSE
-                timestamp = time.strftime("%H:%M:%S")
-                log_queue.put(f"[{timestamp}] [{target_ip}] {msg}")
-
-            sftp = ssh.open_sftp()
+        ssh.connect(target_ip, port=ssh_port, username=ssh_user, password=ssh_pass, timeout=15)        # Helper for deploying offline serial package
+        def deploy_serial_module(sftp_client, remote_dest="controlboard/serial"):
             try:
-                ssh.exec_command("mkdir -p ~/controlboard")
-                
-                # Upload Files
-                # 1. app.py (from repo root)
-                local_app_py = os.path.join(repo_path, "app.py")
-                if os.path.exists(local_app_py):
-                    sftp.put(local_app_py, "controlboard/app.py")
-                else:
-                    log_boot(f"[WARN] Local app.py not found at {local_app_py}")
+                import serial
+                serial_dir = os.path.dirname(serial.__file__)
+            except ImportError:
+                return False
 
-                # 2. dist files (commands.py, controlboard.py)
-                for fname in ['commands.py', 'controlboard.py']:
-                    local_path = os.path.join(dist_path, fname)
-                    remote_path = f"controlboard/dist/{fname}" # keep inside dist/ on remote?
-                    # correction: setup.sh structure has 'dist' folder? 
-                    # Checking setup.sh: it downloads to $INSTALL_DIR/dist. 
-                    # But wait, remote structure usually has app.py in root and dist/ folder?
-                    # Original code put them in "controlboard/{fname}" which implies flat structure?
-                    # Let's check imports in app.py. It does `sys.path.append... dist`.
-                    # checking setup.sh again:
-                    # Line 267: DIST_DIR="$INSTALL_DIR/dist"
-                    # So dist files go to dist/. 
-                    # BUT app.py in repo is in root.
-                    # The previous code: `remote_path = f"controlboard/{fname}"` for all files.
-                    # That seems wrong if imports expect dist.
-                    # However, let's stick to flat if that's what was intended, OR fix it.
-                    # checking remote app.py usage... 
-                    # Remote app.py: tries to import commands. 
-                    # If commands.py is in same dir, it works. 
-                    # If it's in dist, we need sys.path.append.
-                    # Let's check local app.py lines 407+: it appends 'dist'.
-                    # So remote structure should PROBABLY reflect local structure.
-                    #   ~/controlboard/app.py
-                    #   ~/controlboard/dist/commands.py
-                    #   ~/controlboard/dist/controlboard.py
-                    
-                    ssh.exec_command("mkdir -p ~/controlboard/dist")
-                    
-                    remote_dist_path = f"controlboard/dist/{fname}"
-                    if os.path.exists(local_path):
-                        sftp.put(local_path, remote_dist_path)
-                    else:
-                        log_boot(f"[WARN] Local {fname} not found at {local_path}")
-                
-                # Check dependencies (pyserial) in venv or system?
-                # The user insists on following setup.sh which uses venv.
-                # So we should try to set up venv if possible.
-                
-                # Check if venv exists
-                stdin, stdout, stderr = ssh.exec_command("test -f ~/controlboard/env/bin/python3 && echo 'FOUND' || echo 'MISSING'")
-                venv_status = stdout.read().decode().strip()
-                
-                if venv_status == 'MISSING':
-                    log_boot("[System] Creating virtual environment (env)...")
-                    # Create venv
-                    # Try to create. If it fails, install python3-venv
-                    _, stdout, stderr = ssh.exec_command("cd ~/controlboard && python3 -m venv env")
-                    exit_code = stdout.channel.recv_exit_status()
-                    
-                    if exit_code != 0:
-                        err_out = stderr.read().decode().strip()
-                        log_boot(f"[ERROR] venv creation failed: {err_out}. Installing python3-venv...")
-                        # Failed, likely missing venv package
-                        # We use sudo non-interactive
-                        install_cmd = f"echo '{ssh_pass}' | sudo -S apt-get update && echo '{ssh_pass}' | sudo -S apt-get install -y python3-venv"
-                        _, i_out, i_err = ssh.exec_command(install_cmd)
-                        result_log = i_out.read().decode() + i_err.read().decode()
-                        log_boot(f"[System] Setup log: {result_log[:200]}...") # truncate
-                        
-                        # Retry create
-                        _, stdout, stderr = ssh.exec_command("cd ~/controlboard && python3 -m venv env")
-                        exit_code = stdout.channel.recv_exit_status()
-                        if exit_code != 0:
-                            log_boot(f"[ERROR] venv retry failed: {stderr.read().decode().strip()}")
-                        else:
-                            log_boot("[System] venv created successfully.")
-                    
-                    # Install deps
-                    log_boot("[System] Installing dependencies (pyserial, requests)...")
-                    _, i_out, i_err = ssh.exec_command("cd ~/controlboard && ./env/bin/pip install pyserial requests")
-                    
-                    pip_exit = i_out.channel.recv_exit_status()
-                    pip_out = i_out.read().decode().strip()
-                    pip_err = i_err.read().decode().strip()
-                    
-                    if pip_exit != 0:
-                        log_boot(f"[ERROR] pip install failed: {pip_out} {pip_err}")
-                    else:
-                         log_boot(f"[System] pip installed: {pip_out}")
-                else:
-                    # Check deps
-                    stdin, stdout, stderr = ssh.exec_command("~/controlboard/env/bin/python3 -c 'import serial; import requests' 2>/dev/null && echo 'OK' || echo 'MISSING'")
-                    if stdout.read().decode().strip() == 'MISSING':
-                         log_boot("[System] Installing missing dependencies...")
-                         _, i_out, i_err = ssh.exec_command("cd ~/controlboard && ./env/bin/pip install pyserial requests")
-                         pip_out = i_out.read().decode().strip()
-                         pip_err = i_err.read().decode().strip()
-                         if pip_err:
-                             log_boot(f"Output: {pip_out}\nErrors: {pip_err}")
-                         else:
-                             log_boot(pip_out)
-                    
-            except Exception as e:
-                return jsonify({"error": f"Bootstrap failed: {str(e)}"}), 500
-            finally:
-                sftp.close()
+            def mkdir_p(path):
+                sub_dirs = [p for p in path.split("/") if p]
+                current = ""
+                for sd in sub_dirs:
+                    current = f"{current}/{sd}" if current else sd
+                    try:
+                        sftp_client.mkdir(current)
+                    except:
+                        pass
+
+            mkdir_p(remote_dest)
+            for root, dirs, files in os.walk(serial_dir):
+                rel_dir = os.path.relpath(root, serial_dir)
+                remote_base = remote_dest if rel_dir == "." else f"{remote_dest}/{rel_dir}"
+                for d in dirs:
+                    mkdir_p(f"{remote_base}/{d}")
+                for f in files:
+                    if f.endswith(".py"):
+                        local_f = os.path.join(root, f)
+                        remote_f = f"{remote_base}/{f}"
+                        try:
+                            sftp_client.put(local_f, remote_f)
+                        except Exception as e:
+                            print(f"[SFTP] Warning copying {f}: {e}")
+            return True
+
+        # 1. Check and Sync Tools / Dependencies
+        repo_path = "/app/controlboard_repo"
+        dist_path = os.path.join(repo_path, "dist")
+        if not os.path.exists(repo_path):
+            repo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "controlboard"))
+            dist_path = os.path.join(repo_path, "dist")
+
+        boot_logs = []
+        def log_boot(msg):
+            boot_logs.append(msg)
+            timestamp = time.strftime("%H:%M:%S")
+            log_queue.put(f"[{timestamp}] [{target_ip}] {msg}")
+
+        sftp = ssh.open_sftp()
+        try:
+            # Ensure base directories exist
+            try:
+                sftp.mkdir("controlboard")
+            except:
+                pass
+            try:
+                sftp.mkdir("controlboard/dist")
+            except:
+                pass
+
+            # Upload / Update app.py
+            local_app_py = os.path.join(repo_path, "app.py")
+            if os.path.exists(local_app_py):
+                try:
+                    sftp.put(local_app_py, "controlboard/app.py")
+                except Exception as e:
+                    log_boot(f"[WARN] Failed to upload app.py: {e}")
+
+            # Upload / Update dist files
+            for fname in ['commands.py', 'controlboard.py']:
+                local_path = os.path.join(dist_path, fname)
+                if os.path.exists(local_path):
+                    try:
+                        sftp.put(local_path, f"controlboard/dist/{fname}")
+                    except Exception as e:
+                        log_boot(f"[WARN] Failed to upload {fname}: {e}")
+
+            # Check if Python can import serial on target
+            stdin, stdout, stderr = ssh.exec_command("cd ~/controlboard && python3 -c 'import serial' 2>/dev/null && cd ~/controlboard/dist && python3 -c 'import serial' 2>/dev/null && echo 'OK' || echo 'MISSING'")
+            serial_status = stdout.read().decode().strip()
+
+            if serial_status != 'OK':
+                log_boot("[System] Deploying offline serial driver (pyserial)...")
+                deploy_serial_module(sftp, "controlboard/serial")
+                deploy_serial_module(sftp, "controlboard/dist/serial")
+                # Remove broken env if present to avoid conflict
+                ssh.exec_command("test -d ~/controlboard/env && rm -rf ~/controlboard/env")
+                log_boot("[System] Serial driver deployed.")
+        except Exception as e:
+            return jsonify({"error": f"Bootstrap failed: {str(e)}"}), 500
+        finally:
+            sftp.close()
 
         # 1.5. Ensure Permissions (dialout)
-        # Check current groups
         stdin, stdout, stderr = ssh.exec_command("groups")
         groups_str = stdout.read().decode().strip()
         
         if "dialout" not in groups_str:
-            # Add user to dialout
             print(f"[DEBUG] Adding user {ssh_user} to dialout group")
             add_group_cmd = f"echo '{ssh_pass}' | sudo -S usermod -aG dialout {ssh_user}"
             ssh.exec_command(add_group_cmd)
         
-        # We use 'sg dialout' to force group usage usage without relogin
-        # Prefix for commands needing serial access
+        # We use 'sg dialout' to force group usage without relogin
         sg_prefix = "sg dialout -c "
         
         # PYTHON INTERPRETER TO USE
-        # We prefer the venv path
-        python_bin = "~/controlboard/env/bin/python3"
-        # Check integrity
-        stdin, stdout, stderr = ssh.exec_command(f"test -f {python_bin} && echo 'VENV' || echo 'SYS'")
-        if stdout.read().decode().strip() == 'SYS':
-            python_bin = "python3"
+        python_bin = "python3"
+        stdin, stdout, stderr = ssh.exec_command("cd ~/controlboard && python3 -c 'import serial' 2>/dev/null && echo 'OK' || echo 'FAIL'")
+        if stdout.read().decode().strip() != 'OK':
+            stdin, stdout, stderr = ssh.exec_command("cd ~/controlboard && ./env/bin/python3 -c 'import serial' 2>/dev/null && echo 'OK' || echo 'FAIL'")
+            if stdout.read().decode().strip() == 'OK':
+                python_bin = "~/controlboard/env/bin/python3"
 
         # 2. Smart Port Detection & Version Check
         target_port = "/dev/ttyUSB0" # fallback
@@ -1254,7 +1211,7 @@ def console_connect():
             debug_errors = []
             for port in candidates:
                 # Run tech_data check
-                check_cmd = f"{sg_prefix} 'cd ~/controlboard && timeout 5s {python_bin} -u dist/controlboard.py read tech_data -p {port}'"
+                check_cmd = f"{sg_prefix} 'cd ~/controlboard && export PYTHONPATH=~/controlboard:~/controlboard/dist:$PYTHONPATH && timeout 5s {python_bin} -u dist/controlboard.py read tech_data -p {port}'"
                 
                 stdin, stdout, stderr = ssh.exec_command(check_cmd)
                 out = stdout.read().decode()
@@ -1280,7 +1237,7 @@ def console_connect():
         channel.settimeout(3.0)
         
         # Start the REPL app
-        channel.send(f"{sg_prefix} 'cd ~/controlboard && {python_bin} -u app.py'\n")
+        channel.send(f"{sg_prefix} 'cd ~/controlboard && export PYTHONPATH=~/controlboard:~/controlboard/dist:$PYTHONPATH && {python_bin} -u app.py'\n")
         
         # Helper to wait for string
         def wait_and_send(pattern, send_str):
@@ -1361,8 +1318,8 @@ def console_connect():
                  scan_msg = f"[System] Scan failed to find active controller. Using {target_port}. (Debug: {error_details})\n"
 
         init_msg = ""
-        if status == 'MISSING':
-            init_msg += "[System] Bootstrap verification complete.\n"
+        if serial_status != 'OK':
+            init_msg += "[System] Offline driver deployed.\n"
             
         return jsonify({"status": "connected", "output": init_msg + scan_msg + clean_output})
 
@@ -1407,7 +1364,7 @@ def console_send():
         clean_output = ansi_escape.sub('', output)
         return jsonify({"output": clean_output})
     except Exception as e:
-        del CONSOLE_SESSIONS[username]
+        CONSOLE_SESSIONS.pop(username, None)
         return jsonify({"error": f"Session Lost: {str(e)}"}), 500
 
 
@@ -1495,7 +1452,7 @@ def console_disconnect():
             CONSOLE_SESSIONS[username].close()
         except:
             pass
-        del CONSOLE_SESSIONS[username]
+        CONSOLE_SESSIONS.pop(username, None)
     return jsonify({"status": "disconnected"})
 
 

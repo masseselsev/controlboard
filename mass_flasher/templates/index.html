@@ -1191,19 +1191,18 @@
                 btn.innerText = T.reading_please_wait;
                 btn.disabled = true;
 
-                return fetch('/api/console/batch_read', {
+                return fetchJsonSafe('/api/console/batch_read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ commands: commands })
                 });
             })
-                .then(res => res.json())
                 .then(data => {
                     if (data.error) {
                         alert(T.error_prefix + data.error);
                     } else {
                         document.getElementById('dumpModal').style.display = 'none';
-                        document.getElementById('dump-output').value = data.text;
+                        document.getElementById('dump-output').value = data.text || '';
                         document.getElementById('dumpResultModal').style.display = 'block';
                     }
                 })
@@ -1316,6 +1315,24 @@
 
         let isConnected = false;
 
+        async function fetchJsonSafe(url, options) {
+            const res = await fetch(url, options);
+            const text = await res.text();
+            let data;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch (e) {
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText || 'Server Error'}`);
+                }
+                throw new Error(`Invalid JSON: ${text.substring(0, 100)}`);
+            }
+            if (!res.ok && !data.error) {
+                data.error = `HTTP ${res.status}: ${data.message || res.statusText || 'Server Error'}`;
+            }
+            return data;
+        }
+
         function updateConnectionState(connected, msg = "") {
             isConnected = connected;
             const statusEl = document.getElementById('console-status');
@@ -1353,12 +1370,11 @@
 
             appendConsole(`[${T.system_text}] ${T.connecting_to} ${ip}:${sshPort}...`, "dim");
 
-            return fetch('/api/console/connect', {
+            return fetchJsonSafe('/api/console/connect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ip: ip, ssh_port: sshPort, username: user, password: pass })
             })
-                .then(res => res.json())
                 .then(data => {
                     if (data.error) {
                         appendConsole(`[${T.error_text}] ${data.error}`, "error");
@@ -1375,16 +1391,18 @@
                 .catch(err => {
                     // Only append if it wasn't already appended
                     if (!err.message || !err.message.startsWith(`[${T.error_text}]`)) {
-                        appendConsole(`[${T.network_error}] ${err}`, "error");
+                        appendConsole(`[${T.network_error}] ${err.message || err}`, "error");
                     }
                     throw err;
                 });
         }
 
         function disconnectConsole() {
-            fetch('/api/console/disconnect', { method: 'POST' })
-                .then(res => res.json())
+            fetchJsonSafe('/api/console/disconnect', { method: 'POST' })
                 .then(data => {
+                    updateConnectionState(false, `[${T.system_text}] ${T.disconnected_message}.`);
+                })
+                .catch(err => {
                     updateConnectionState(false, `[${T.system_text}] ${T.disconnected_message}.`);
                 });
         }
@@ -1413,12 +1431,11 @@
 
             if (input) input.value = '';
 
-            fetch('/api/console/send', {
+            fetchJsonSafe('/api/console/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ cmd: cmd })
             })
-                .then(res => res.json())
                 .then(data => {
                     if (data.error) {
                         appendConsole(`[${T.error_text}] ${data.error}`, 'error');
@@ -1431,7 +1448,7 @@
                     }
                 })
                 .catch(err => {
-                    appendConsole(`[${T.network_error}] ${err}`, 'error');
+                    appendConsole(`[${T.network_error}] ${err.message || err}`, 'error');
                 });
         }
 
